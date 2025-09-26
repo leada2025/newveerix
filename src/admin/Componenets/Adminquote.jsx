@@ -33,6 +33,8 @@ export default function AdminQuotes() {
   const [modalData, setModalData] = useState(null);
   const [inputValue, setInputValue] = useState("");
   const [loading, setLoading] = useState(false);
+const [currentPage, setCurrentPage] = useState(1);
+const [rowsPerPage, setRowsPerPage] = useState(10);
 
   // ---- Fetch Quotes ----
   const fetchQuotes = async () => {
@@ -133,6 +135,13 @@ const handleActionClick = (action, quote) => {
     performAction(action, quote._id);
   }
 };
+const paginatedQuotes = useMemo(() => {
+  const start = (currentPage - 1) * rowsPerPage;
+  const end = start + rowsPerPage;
+  return processedQuotes.slice(start, end);
+}, [processedQuotes, currentPage, rowsPerPage]);
+
+const totalPages = Math.ceil(processedQuotes.length / rowsPerPage);
 
 
   return (
@@ -214,7 +223,7 @@ const handleActionClick = (action, quote) => {
   </tr>
 </thead>
            <tbody>
-  {processedQuotes.map((q) => (
+{paginatedQuotes.map((q) => (
     <tr key={q._id} className="border-b last:border-none hover:bg-slate-50 transition">
       <td className="px-4 py-3">{new Date(q.createdAt).toLocaleDateString()}</td> {/* Date */}
       <td className="px-4 py-3">{q.customerId?.name || "Customer"}</td>
@@ -364,6 +373,37 @@ const handleActionClick = (action, quote) => {
     </div>
   </div>
 )}
+<div className="flex items-center justify-between mt-4">
+  <div className="text-sm text-slate-600">
+    Page {currentPage} of {totalPages}
+  </div>
+  <div className="flex items-center gap-2">
+    <button
+      onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+      disabled={currentPage === 1}
+      className="px-3 py-1 border rounded-lg disabled:opacity-50"
+    >
+      Prev
+    </button>
+    <button
+      onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+      disabled={currentPage === totalPages}
+      className="px-3 py-1 border rounded-lg disabled:opacity-50"
+    >
+      Next
+    </button>
+    <select
+      value={rowsPerPage}
+      onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+      className="border px-2 py-1 rounded-lg text-sm"
+    >
+      <option value={5}>5 / page</option>
+      <option value={10}>10 / page</option>
+      <option value={20}>20 / page</option>
+      <option value={50}>50 / page</option>
+    </select>
+  </div>
+</div>
 
     </div>
   );
