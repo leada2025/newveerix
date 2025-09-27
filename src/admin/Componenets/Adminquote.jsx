@@ -206,7 +206,7 @@ const totalPages = Math.ceil(processedQuotes.length / rowsPerPage);
 
       {/* Table View */}
       {view === "table" && (
-        <div className="overflow-x-auto bg-white rounded-xl shadow border">
+        <div className="overflow-x-auto bg-white rounded-xl shadow ">
           <table className="w-full text-sm">
             <thead className="bg-slate-100 text-slate-700 text-xs uppercase">
   <tr>
@@ -224,7 +224,7 @@ const totalPages = Math.ceil(processedQuotes.length / rowsPerPage);
 </thead>
            <tbody>
 {paginatedQuotes.map((q) => (
-    <tr key={q._id} className="border-b last:border-none hover:bg-slate-50 transition">
+    <tr key={q._id} className="last:border-none hover:bg-slate-50 transition">
       <td className="px-4 py-3">{new Date(q.createdAt).toLocaleDateString()}</td> {/* Date */}
       <td className="px-4 py-3">{q.customerId?.name || "Customer"}</td>
       <td className="px-4 py-3">{q.brandName || "-"}</td> {/* Brand Name */}

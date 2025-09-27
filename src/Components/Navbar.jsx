@@ -1,15 +1,72 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Bell, LogOut, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import socket from "../Components/Socket";
+
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [notifications, setNotifications] = useState([]);
 
-  const navbarBg = "bg-[#d1383a]"; // change theme here
-  const brandName = "Manufacturing Tracker"; // static brand
-const navigate = useNavigate();
-    const handleLogout = () => {
+  const navbarBg = "bg-[#d1383a]";
+  const brandName = "Manufacturing Tracker";
+  const navigate = useNavigate();
+
+  // 🔥 Connect to socket
+useEffect(() => {
+  const user = JSON.parse(localStorage.getItem("user"));
+  if (!user?._id) return;
+
+  if (!socket.connected) socket.connect();
+  socket.emit("join_customer", user._id);
+  console.log(`Joined room: customer_${user._id}`);
+
+  const quoteListener = ({ quote, change }) => {
+    if (!quote.customerId?._id) return;
+
+    if (quote.customerId._id.toString() !== user._id.toString()) return;
+
+    let message;
+    if (change?.message) {
+      message = `${change.message} (Brand: ${quote.brandName})`;
+    } else {
+      const statusText = {
+        "Pending": `Your request for ${quote.brandName} has been submitted.`,
+        "Quote Sent": `A new quote for ${quote.brandName} has been sent by the admin.`,
+        "Approved Quote": `Your quote for ${quote.brandName} has been approved!`,
+        "Payment Requested": `Payment has been requested for ${quote.brandName}.`,
+        "Paid": `Your payment for ${quote.brandName} has been confirmed.`,
+        "Rejected": `Your quote for ${quote.brandName} has been rejected.`
+      };
+      message = statusText[quote.status] || `Quote update for ${quote.brandName}: ${quote.status}`;
+    }
+
+    setNotifications((prev) => [{ id: Date.now(), message }, ...prev]);
+  };
+
+  socket.on("quote_updated", quoteListener);
+
+  return () => {
+    socket.off("quote_updated", quoteListener);
+  };
+}, []);
+
+
+// Load from localStorage when component mounts
+useEffect(() => {
+  const saved = JSON.parse(localStorage.getItem("notifications")) || [];
+  setNotifications(saved);
+}, []);
+
+// Save to localStorage whenever notifications change
+useEffect(() => {
+  localStorage.setItem("notifications", JSON.stringify(notifications));
+}, [notifications]);
+
+
+
+  const handleLogout = () => {
     localStorage.removeItem("user");
     localStorage.removeItem("token");
     navigate("/");
@@ -30,15 +87,32 @@ const navigate = useNavigate();
           className="relative p-2 rounded-full hover:bg-white/20 transition"
         >
           <Bell size={22} />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-white rounded-full animate-ping"></span>
+          {notifications.length > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-500 text-xs text-white rounded-full px-1">
+              {notifications.length}
+            </span>
+          )}
         </button>
 
         {/* Notification dropdown */}
         {open && (
-          <div className="absolute right-0 top-12 bg-white text-black rounded-lg shadow-lg w-64 p-3 max-h-64 overflow-y-auto">
-            <p className="text-sm text-gray-500">No new notifications</p>
+          <div className="absolute right-0 top-12 bg-white text-black rounded-lg shadow-lg w-64 p-3 max-h-64 overflow-y-auto z-50">
+            {notifications.length === 0 ? (
+              <p className="text-sm text-gray-500">No new notifications</p>
+            ) : (
+              notifications.map((n) => (
+                <div key={n.id} className="p-2 border-b last:border-none text-sm">
+                  {n.message}
+                </div>
+              ))
+            )}
             <div className="flex justify-between mt-3">
-              <button className="text-gray-500 text-sm">Clear</button>
+              <button
+                onClick={() => setNotifications([])}
+                className="text-gray-500 text-sm"
+              >
+                Clear
+              </button>
             </div>
           </div>
         )}
@@ -65,18 +139,14 @@ const navigate = useNavigate();
       {/* Profile Modal */}
       {profileOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md transform transition-all scale-100">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
             {/* Header */}
             <div className="flex flex-col items-center p-6 border-b">
               <div className="w-16 h-16 rounded-full bg-[#d1383a]/10 flex items-center justify-center mb-3">
                 <User size={32} className="text-[#d1383a]" />
               </div>
-              <h3 className="text-xl font-semibold text-[#d1383a]">
-                Edit Profile
-              </h3>
-              <p className="text-sm text-gray-500">
-                Update your account details
-              </p>
+              <h3 className="text-xl font-semibold text-[#d1383a]">Edit Profile</h3>
+              <p className="text-sm text-gray-500">Update your account details</p>
             </div>
 
             {/* Form */}
@@ -91,9 +161,7 @@ const navigate = useNavigate();
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-700">
-                  Email
-                </label>
+                <label className="text-sm font-medium text-gray-700">Email</label>
                 <input
                   type="email"
                   className="w-full border rounded-lg p-2.5 mt-1 text-black focus:ring-2 focus:ring-[#d1383a] outline-none"
@@ -102,9 +170,7 @@ const navigate = useNavigate();
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-700">
-                  Password
-                </label>
+                <label className="text-sm font-medium text-gray-700">Password</label>
                 <div className="relative">
                   <input
                     type={showPassword ? "text" : "password"}

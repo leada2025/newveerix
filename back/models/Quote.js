@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const QuoteSchema = new mongoose.Schema(
   {
-    customerId: { type: mongoose.Schema.Types.ObjectId, ref: "Customer" },
+    customerId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     brandName: String,
     moleculeName: String,
     customMolecule: String,

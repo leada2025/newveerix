@@ -11,7 +11,7 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false); // 👈 toggle state
   const [error, setError] = useState("");
 
-  const handleLogin = async (e) => {
+ const handleLogin = async (e) => {
   e.preventDefault();
   try {
     const res = await axios.post("/api/users/login", {
@@ -20,8 +20,22 @@ const LoginPage = () => {
     });
 
     const { token, user } = res.data;
+
+    // ✅ Store auth token
     localStorage.setItem("authToken", token);
-    localStorage.setItem("user", JSON.stringify(user));
+
+    // ✅ Store user with _id (matching MongoDB IDs)
+    localStorage.setItem(
+      "user",
+      JSON.stringify({
+        _id: user._id,   // 👈 use _id, not id
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      })
+    );
+
+    // 🔥 Socket will join correct room using _id
 
     // ✅ Redirect based on role
     if (user.role === "admin") {
@@ -34,6 +48,7 @@ const LoginPage = () => {
     setError("Invalid email or password");
   }
 };
+
 
 
   return (

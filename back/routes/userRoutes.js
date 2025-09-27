@@ -36,10 +36,11 @@ router.post("/login", async (req, res) => {
     const isMatch = await user.matchPassword(password);
     if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
 
-    res.json({
-      token: generateToken(user._id),
-      user: { id: user._id, name: user.name, email: user.email, role: user.role }
-    });
+ res.json({
+  token: generateToken(user._id),
+  user: { _id: user._id, name: user.name, email: user.email, role: user.role } // 👈 _id instead of id
+});
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });

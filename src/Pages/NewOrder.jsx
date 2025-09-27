@@ -77,7 +77,7 @@ export default function OrderPage({ customerId }) {
         {/* Page header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-2xl font-semibold">Orders</h2>
+            <h2 className="text-2xl ] font-semibold">Orders</h2>
             <div className="text-sm text-slate-500 mt-1">Manage all manufacturing orders, approvals, payments and lifecycle tracking.</div>
           </div>
           <div className="flex items-center gap-3">
@@ -88,7 +88,7 @@ export default function OrderPage({ customerId }) {
             <button onClick={() => setShowFilters(s => !s)} className="p-2 rounded-lg bg-white shadow-sm flex items-center gap-2"><Filter className="w-4 h-4"/> Filters</button>
             <button 
               onClick={() => { setEditingOrder(null); setOpenNewOrder(true); }} 
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#d1383a] text-white"
             >
               <Plus className="w-4 h-4"/> New Order
             </button>

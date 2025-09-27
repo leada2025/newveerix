@@ -30,6 +30,7 @@ export default function NewOrderModal({ open, onClose, customerId, quoteData,onC
   });
   const [moleculeOptions, setMoleculeOptions] = useState([]);
   const [quote, setQuote] = useState(null);
+const [showConfirm, setShowConfirm] = useState(false);
 
   // ---- Map quote status to step
   const statusOrder = ['Pending', 'Quote Sent', 'Approved Quote', 'Payment Requested', 'Paid'];
@@ -113,7 +114,7 @@ const next = () => {
   const submitQuote = async () => {
     try {
       const payload = {
-        customerId,
+        customerId: customerId || JSON.parse(localStorage.getItem('user'))?._id,
         moleculeName: form.molecule,
         customMolecule: form.customMolecule,
         quantity: form.qty,
@@ -150,6 +151,7 @@ const isSubmitDisabled =
   !form.qty ||
   !!quote?.status; // disable if any status exists
 
+const isFormDisabled = !!quote?.status; 
 
 
   return (
@@ -182,78 +184,82 @@ const isSubmitDisabled =
         {/* Step Content */}
         <div className="bg-slate-50 p-4 rounded-lg mb-4">
           {/* Step 1 */}
-          {step === 1 && (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs text-slate-500">Brand Name</label>
-                <input
-                  type="text"
-                  value={form.brand}
-                  onChange={e => setForm({ ...form, brand: e.target.value })}
-                  className="mt-1 p-2 border rounded-lg w-full"
-                  placeholder="Enter Brand Name"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-slate-500">Molecule</label>
-                <select
-                  value={form.molecule}
-                  onChange={e => setForm({ ...form, molecule: e.target.value, customMolecule: '' })}
-                  disabled={!!form.customMolecule}
-                  className="mt-1 p-2 border rounded-lg w-full disabled:bg-slate-100"
-                >
-                  <option value="">Select Molecule</option>
-                  {moleculeOptions.map(m => (
-                    <option key={m.value} value={m.value}>{m.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs text-slate-500">Or Custom Molecule</label>
-                <input
-                  value={form.customMolecule}
-                  onChange={e => setForm({ ...form, customMolecule: e.target.value, molecule: '' })}
-                  disabled={!!form.molecule}
-                  className="mt-1 p-2 border rounded-lg w-full disabled:bg-slate-100"
-                  placeholder="Custom molecule"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-slate-500">Quantity</label>
-                <select
-                  value={form.qty}
-                  onChange={e => setForm({ ...form, qty: e.target.value })}
-                  className="mt-1 p-2 border rounded-lg w-full"
-                >
-                  <option value="">Select Quantity</option>
-                  {quantityOptions.map(q => (
-                    <option key={q} value={q}>{q}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs text-slate-500">Unit</label>
-                <select
-                  value={form.unit}
-                  onChange={e => setForm({ ...form, unit: e.target.value })}
-                  className="mt-1 p-2 border rounded-lg w-full"
-                >
-                  <option value="boxes">boxes</option>
-                  <option value="packs">packs</option>
-                  <option value="units">units</option>
-                </select>
-              </div>
-              <div className="col-span-2 flex justify-end mt-3">
-                <button
-          onClick={submitQuote}
-          disabled={isSubmitDisabled}
-          className="px-4 py-2 rounded-lg bg-emerald-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Submit Request
-        </button>
-              </div>
-            </div>
-          )}
+         {step === 1 && (
+  <div className="grid grid-cols-2 gap-4">
+    <div>
+      <label className="text-xs text-slate-500">Brand Name</label>
+      <input
+        type="text"
+        value={form.brand}
+        onChange={e => setForm({ ...form, brand: e.target.value })}
+        disabled={isFormDisabled}
+        className="mt-1 p-2 border rounded-lg w-full disabled:bg-slate-100"
+        placeholder="Enter Brand Name"
+      />
+    </div>
+    <div>
+      <label className="text-xs text-slate-500">Molecule</label>
+      <select
+        value={form.molecule}
+        onChange={e => setForm({ ...form, molecule: e.target.value, customMolecule: '' })}
+        disabled={isFormDisabled || !!form.customMolecule}
+        className="mt-1 p-2 border rounded-lg w-full disabled:bg-slate-100"
+      >
+        <option value="">Select Molecule</option>
+        {moleculeOptions.map(m => (
+          <option key={m.value} value={m.value}>{m.label}</option>
+        ))}
+      </select>
+    </div>
+    <div>
+      <label className="text-xs text-slate-500">Or Custom Molecule</label>
+      <input
+        value={form.customMolecule}
+        onChange={e => setForm({ ...form, customMolecule: e.target.value, molecule: '' })}
+        disabled={isFormDisabled || !!form.molecule}
+        className="mt-1 p-2 border rounded-lg w-full disabled:bg-slate-100"
+        placeholder="Custom molecule"
+      />
+    </div>
+    <div>
+      <label className="text-xs text-slate-500">Quantity</label>
+      <select
+        value={form.qty}
+        onChange={e => setForm({ ...form, qty: e.target.value })}
+        disabled={isFormDisabled}
+        className="mt-1 p-2 border rounded-lg w-full disabled:bg-slate-100"
+      >
+        <option value="">Select Quantity</option>
+        {quantityOptions.map(q => (
+          <option key={q} value={q}>{q}</option>
+        ))}
+      </select>
+    </div>
+    <div>
+      <label className="text-xs text-slate-500">Unit</label>
+      <select
+        value={form.unit}
+        onChange={e => setForm({ ...form, unit: e.target.value })}
+        disabled={isFormDisabled}
+        className="mt-1 p-2 border rounded-lg w-full disabled:bg-slate-100"
+      >
+        <option value="boxes">boxes</option>
+        <option value="packs">packs</option>
+        <option value="units">units</option>
+      </select>
+    </div>
+
+    <div className="col-span-2 flex justify-end mt-3">
+      <button
+        onClick={submitQuote}
+        disabled={isSubmitDisabled}
+        className="px-4 py-2 rounded-lg bg-emerald-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        Submit Request
+      </button>
+    </div>
+  </div>
+)}
 
           {/* Step 2 */}
           {step === 2 && (
@@ -267,13 +273,14 @@ const isSubmitDisabled =
               </div>
               <div className="mt-4 flex gap-2">
                 <button
-                  onClick={acceptQuote}
-                  disabled={quote?.status !== 'Quote Sent'}
-                  className={`px-4 py-2 rounded-lg bg-emerald-600 text-white
-                    ${quote?.status !== 'Quote Sent' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  {quote?.status === 'Approved Quote' ? 'Quote Approved' : 'Accept Quote'}
-                </button>
+  onClick={() => setShowConfirm(true)} // 👈 open modal instead of direct accept
+  disabled={quote?.status !== 'Quote Sent'}
+  className={`px-4 py-2 rounded-lg bg-emerald-600 text-white
+    ${quote?.status !== 'Quote Sent' ? 'opacity-50 cursor-not-allowed' : ''}`}
+>
+  {quote?.status === 'Approved Quote' ? 'Quote Approved' : 'Accept Quote'}
+</button>
+
                 <button onClick={prev} className="px-4 py-2 rounded-lg border">Back</button>
               </div>
             </div>
@@ -361,6 +368,36 @@ const isSubmitDisabled =
           </div>
         </div>
       </div>
+      {showConfirm && (
+  <div className="fixed inset-0 flex items-center justify-center bg-black/50 bg-opacity-40 z-50">
+    <div className="bg-white rounded-xl shadow-lg p-6 w-80">
+      <h3 className="text-lg font-semibold text-slate-800 mb-2">
+        Confirm Acceptance
+      </h3>
+      <p className="text-sm text-slate-600 mb-4">
+        Are you sure you want to accept this quote?
+      </p>
+      <div className="flex justify-end gap-3">
+        <button
+          onClick={() => setShowConfirm(false)}
+          className="px-4 py-2 rounded-lg border text-slate-700"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={async () => {
+            await acceptQuote();
+            setShowConfirm(false);
+          }}
+          className="px-4 py-2 rounded-lg bg-emerald-600 text-white"
+        >
+          Yes, Accept
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   );
 }

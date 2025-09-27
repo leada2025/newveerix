@@ -1,174 +1,220 @@
+// routes/quoteRoutes.js
 const express = require('express');
 const router = express.Router();
 const Quote = require('../models/Quote');
+const socket = require("../socket");  // socket.io instance
 
-// Customer: create quote request
-// Customer: create quote request
-router.post('/quotes', async (req, res) => {
-  const { customerId, brandName, moleculeName, customMolecule, quantity, unit } = req.body;
+// ---------- Helper: Emit update ----------
+const emitQuoteUpdate = (quote, change = {}) => {
+  if (!quote?.customerId) return;
+  const io = socket.getIO();
 
-  const quote = new Quote({
-    customerId,
-    brandName,          // ✅ Save brand name
-    moleculeName,
-    customMolecule,
-    quantity,
-    unit
+  const customerIdStr = quote.customerId._id ? quote.customerId._id.toString() : quote.customerId.toString();
+
+  // 👤 Notify customer
+  io.to(`customer_${customerIdStr}`).emit("quote_updated", { quote, change });
+
+  // 👨‍💼 Notify all admins
+  io.to("admin").emit("quote_updated", { quote, change });
+
+  console.log("Emitting:", {
+    customerRoom: `customer_${customerIdStr}`,
+    adminRoom: "admin",
+    change
   });
+};
 
-  await quote.save();
-  res.json(quote);
+// ---------- Create quote (Customer) ----------
+router.post('/quotes', async (req, res) => {
+  try {
+    const { customerId, brandName, moleculeName, customMolecule, quantity, unit } = req.body;
+    const quote = new Quote({ customerId, brandName, moleculeName, customMolecule, quantity, unit });
+    await quote.save();
+    const populatedQuote = await quote.populate('customerId', 'name');
+    emitQuoteUpdate(populatedQuote);
+    res.json(populatedQuote);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 });
 
-// Admin approves quote → Quote Sent
-// Admin approves quote → Quote Sent
-// Admin approves → sends Quote to customer
-// Admin approves
+// ---------- Approve quote (Admin) ----------
 router.patch('/quotes/:id/approve', async (req, res) => {
-  const quote = await Quote.findById(req.params.id);
-  if (!quote) return res.status(404).json({ message: "Quote not found" });
+  try {
+    const quote = await Quote.findById(req.params.id).populate('customerId', 'name');
+    if (!quote) return res.status(404).json({ message: "Quote not found" });
+    if (quote.status !== 'Pending') return res.status(400).json({ message: "Cannot approve in current status" });
 
-  if (quote.status !== 'Pending') {
-    return res.status(400).json({ message: "Quote cannot be approved in its current status" });
+    quote.status = 'Quote Sent';
+    quote.estimatedRate = req.body.estimatedRate || quote.estimatedRate;
+    await quote.save();
+
+    const populatedQuote = await quote.populate('customerId', 'name');
+    emitQuoteUpdate(populatedQuote);
+    res.json(populatedQuote);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
-
-  quote.status = 'Quote Sent';
-  quote.estimatedRate = req.body.estimatedRate || quote.estimatedRate;
-  await quote.save();
-  res.json(quote);
 });
 
-
-// Customer approves → moves to Approved Quote
-// Customer approves
+// ---------- Customer approves quote ----------
 router.patch('/quotes/:id/approve-customer', async (req, res) => {
-  const quote = await Quote.findById(req.params.id);
-  if (!quote) return res.status(404).json({ message: "Quote not found" });
+  try {
+    const quote = await Quote.findById(req.params.id).populate('customerId', 'name');
+    if (!quote) return res.status(404).json({ message: "Quote not found" });
+    if (quote.status !== 'Quote Sent') return res.status(400).json({ message: "Cannot approve in current status" });
 
-  if (quote.status !== 'Quote Sent') {
-    return res.status(400).json({ message: "Quote cannot be approved in its current status" });
+    quote.status = 'Approved Quote';
+    await quote.save();
+
+    const populatedQuote = await quote.populate('customerId', 'name');
+    emitQuoteUpdate(populatedQuote);
+    res.json(populatedQuote);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
-
-  quote.status = 'Approved Quote';
-  await quote.save();
-  res.json(quote);
 });
 
-// Admin: request payment
-// Admin: request payment
+// ---------- Request Payment (Admin) ----------
 router.patch('/quotes/:id/payment', async (req, res) => {
-  const quote = await Quote.findById(req.params.id);
-  if (!quote) return res.status(404).json({ message: "Quote not found" });
+  try {
+    const quote = await Quote.findById(req.params.id).populate('customerId', 'name');
+    if (!quote) return res.status(404).json({ message: "Quote not found" });
+    if (quote.status !== 'Approved Quote') return res.status(400).json({ message: "Payment can only be requested after approval" });
 
-  if (quote.status !== "Approved Quote") {
-    return res.status(400).json({ message: "Payment can only be requested after customer approves the quote" });
+    quote.status = 'Payment Requested';
+    quote.requestedAmount = req.body.amount || quote.estimatedRate;
+    await quote.save();
+
+    const populatedQuote = await quote.populate('customerId', 'name');
+    emitQuoteUpdate(populatedQuote);
+    res.json(populatedQuote);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
-
-  quote.status = 'Payment Requested';
-  quote.requestedAmount = req.body.amount;
-  await quote.save();
-  res.json(quote);
 });
-// Customer: submit payment proof/details
+
+// ---------- Submit Customer Payment ----------
 router.patch('/quotes/:id/customer-payment', async (req, res) => {
-  const quote = await Quote.findById(req.params.id);
-  if (!quote) return res.status(404).json({ message: "Quote not found" });
+  try {
+    const quote = await Quote.findById(req.params.id).populate('customerId', 'name');
+    if (!quote) return res.status(404).json({ message: "Quote not found" });
+    if (quote.status !== 'Payment Requested') return res.status(400).json({ message: "Payment can only be submitted after request" });
 
-  if (quote.status !== "Payment Requested") {
-    return res.status(400).json({ message: "Payment can only be submitted after request" });
+    quote.customerPaymentInfo = {
+      method: req.body.method || "UPI",
+      transactionId: req.body.transactionId,
+      screenshotUrl: req.body.screenshotUrl || null,
+      submittedAt: new Date()
+    };
+    await quote.save();
+
+    const populatedQuote = await quote.populate('customerId', 'name');
+    emitQuoteUpdate(populatedQuote);
+    res.json(populatedQuote);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
-
-  quote.customerPaymentInfo = {
-    method: req.body.method || "UPI",
-    transactionId: req.body.transactionId,
-    screenshotUrl: req.body.screenshotUrl || null,
-    submittedAt: new Date()
-  };
-
-  await quote.save();
-  res.json(quote);
 });
 
-
-// Admin: mark as paid
+// ---------- Mark Paid (Admin) ----------
 router.patch('/quotes/:id/paid', async (req, res) => {
-  const quote = await Quote.findByIdAndUpdate(
-    req.params.id,
-    { status: 'Paid' },
-    { new: true }
-  );
-  res.json(quote);
+  try {
+    const quote = await Quote.findByIdAndUpdate(
+      req.params.id,
+      { status: 'Paid' },
+      { new: true }
+    ).populate('customerId', 'name');
+
+    emitQuoteUpdate(quote);
+    res.json(quote);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 });
 
-// Admin: reject quote
+// ---------- Reject Quote (Admin) ----------
 router.patch('/quotes/:id/reject', async (req, res) => {
-  const quote = await Quote.findByIdAndUpdate(
-    req.params.id,
-    { status: 'Rejected' },
-    { new: true }
-  );
-  res.json(quote);
-});
+  try {
+    const quote = await Quote.findByIdAndUpdate(
+      req.params.id,
+      { status: 'Rejected' },
+      { new: true }
+    ).populate('customerId', 'name');
 
-// Get customer quotes
-router.get('/quotes/customer/:customerId', async (req, res) => {
-  const quotes = await Quote.find({ customerId: req.params.customerId });
-  res.json(quotes);
+    emitQuoteUpdate(quote);
+    res.json(quote);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 });
 
 // ---------- Update Tracking Step ----------
-// Update current step
 router.patch('/quotes/:id/step', async (req, res) => {
-  const { trackingStep } = req.body;
-  if (trackingStep === undefined || trackingStep < 0) 
-    return res.status(400).json({ message: "Invalid trackingStep" });
-
   try {
-    const quote = await Quote.findById(req.params.id);
+    const { trackingStep } = req.body;
+    const quote = await Quote.findById(req.params.id).populate('customerId', 'name');
     if (!quote) return res.status(404).json({ message: "Quote not found" });
+    if (trackingStep < 0 || trackingStep >= quote.trackingSteps.length)
+      return res.status(400).json({ message: "Invalid tracking step" });
 
-    if (trackingStep >= quote.trackingSteps.length)
-      return res.status(400).json({ message: "trackingStep exceeds steps" });
-
+    const prevStep = quote.trackingStep;
     quote.trackingStep = trackingStep;
     await quote.save();
+
+    emitQuoteUpdate(quote, {
+      type: "tracking",
+      previousStep: prevStep,
+      currentStep: trackingStep,
+      stepLabel: quote.trackingSteps[trackingStep],
+      message: `Quote moved to step: ${quote.trackingSteps[trackingStep]}`
+    });
+
     res.json(quote);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to update tracking step" });
+    res.status(500).json({ message: err.message });
   }
 });
 
-// Update full steps list
+// ---------- Update Full Tracking Steps ----------
 router.patch('/quotes/:id/steps', async (req, res) => {
-  const { trackingSteps } = req.body;
-  if (!Array.isArray(trackingSteps) || trackingSteps.length === 0)
-    return res.status(400).json({ message: "Invalid trackingSteps array" });
-
   try {
-    const quote = await Quote.findById(req.params.id);
+    const { trackingSteps } = req.body;
+    if (!Array.isArray(trackingSteps) || trackingSteps.length === 0)
+      return res.status(400).json({ message: "Invalid tracking steps" });
+
+    const quote = await Quote.findById(req.params.id).populate('customerId', 'name');
     if (!quote) return res.status(404).json({ message: "Quote not found" });
 
     quote.trackingSteps = trackingSteps;
-
-    // Adjust current step if out of bounds
-    if (quote.trackingStep >= trackingSteps.length) {
-      quote.trackingStep = trackingSteps.length - 1;
-    }
-
+    if (quote.trackingStep >= trackingSteps.length) quote.trackingStep = trackingSteps.length - 1;
     await quote.save();
+
+    emitQuoteUpdate(quote);
     res.json(quote);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to update tracking steps" });
+    res.status(500).json({ message: err.message });
   }
 });
 
+// ---------- Get Customer Quotes ----------
+router.get('/quotes/customer/:customerId', async (req, res) => {
+  try {
+    const quotes = await Quote.find({ customerId: req.params.customerId }).populate('customerId', 'name');
+    res.json(quotes);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 
-// Get all quotes (admin)
+// ---------- Get All Quotes (Admin) ----------
 router.get('/quotes', async (req, res) => {
-  const quotes = await Quote.find().populate('customerId');
-  res.json(quotes);
+  try {
+    const quotes = await Quote.find().populate('customerId', 'name');
+    res.json(quotes);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 });
 
 module.exports = router;
