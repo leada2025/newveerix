@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 
 const veerixSidebarLinks = [
-//   { name: "Dashboard", icon: LayoutDashboard, path: "/admin/dashboard" },
+  { name: "Dashboard", icon: LayoutDashboard, path: "/admin/dashboard" },
 //   {
 //     name: "Customers",
 //     icon: Users,
@@ -21,7 +21,7 @@ const veerixSidebarLinks = [
     name: "Quote Requests",
     icon: Home,
     submenu: [
-     { label: "quotes", path: "/admin/quote" },
+     { label: "Quotes", path: "/admin/quote" },
       { label: "Molecules", path: "/admin/molecule" },
     ],
   },

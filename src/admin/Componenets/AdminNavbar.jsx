@@ -28,44 +28,79 @@ export default function AdminNavbar() {
   }, []);
 
   // Socket connection for admin notifications
-  useEffect(() => {
-    if (role !== "admin") return;
-    if (!socket.connected) socket.connect();
+  // Socket connection for admin notifications
+// Socket connection for admin notifications
+useEffect(() => {
+  if (role !== "admin") return;
+  if (!socket.connected) socket.connect();
 
-    const joinAdminRoom = () => {
-      console.log("Socket connected (admin):", socket.id);
-      socket.emit("join_admin");
-    };
+  const joinAdminRoom = () => {
+    console.log("Socket connected (admin):", socket.id);
+    socket.emit("join_admin");
+  };
 
-    if (socket.connected) joinAdminRoom();
-    else socket.once("connect", joinAdminRoom);
+  if (socket.connected) joinAdminRoom();
+  else socket.once("connect", joinAdminRoom);
 
-    const handleQuoteUpdate = (payload) => {
-      const { quote, change } = payload;
-      const customerName = quote.customerId?.name || "Customer";
+  // Handle quote updates
+  const handleQuoteUpdate = ({ quote, change }) => {
+    const customerName = quote.customerId?.name || "Customer";
+    const message = change?.message
+      ? `${change.message} (Brand: ${quote.brandName}, Customer: ${customerName})`
+      : `Quote for ${quote.brandName} (Customer: ${customerName}) updated: ${quote.status}${
+          change?.stepLabel ? ` → Step: ${change.stepLabel}` : ""
+        }`;
 
-      const message = change?.message
-        ? `${change.message} (Brand: ${quote.brandName}, Customer: ${customerName})`
-        : `Quote for ${quote.brandName} (Customer: ${customerName}) updated: ${quote.status}${
-            change?.stepLabel ? ` → Step: ${change.stepLabel}` : ""
-          }`;
+    setNotifications((prev) => {
+      // ✅ Prevent duplicate messages
+      if (prev.some((n) => n.message === message)) return prev;
 
-      setNotifications((prev) => {
-        const updated = [
-          { id: Date.now(), message, time: new Date().toLocaleTimeString() },
-          ...prev,
-        ];
-        localStorage.setItem("admin_notifications", JSON.stringify(updated));
-        return updated;
-      });
-    };
+      const updated = [
+        {
+          id: Date.now(),
+          message,
+          time: new Date().toLocaleTimeString(),
+          type: "quote",
+        },
+        ...prev,
+      ];
+      localStorage.setItem("admin_notifications", JSON.stringify(updated));
+      return updated;
+    });
+  };
 
-    socket.on("quote_updated", handleQuoteUpdate);
+  // Handle chat messages
+  const handleChatMessage = (msg) => {
+    const customerName = msg.customerName || "Customer";
+    const message = `[Chat] ${msg.brandName} (Customer: ${customerName}): ${msg.message}`;
 
-    return () => {
-      socket.off("quote_updated", handleQuoteUpdate);
-    };
-  }, [role]);
+    setNotifications((prev) => {
+      // ✅ Prevent duplicate messages
+      if (prev.some((n) => n.message === message)) return prev;
+
+      const updated = [
+        {
+          id: Date.now(),
+          message,
+          time: new Date().toLocaleTimeString(),
+          type: "chat",
+        },
+        ...prev,
+      ];
+      localStorage.setItem("admin_notifications", JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  socket.on("quote_updated", handleQuoteUpdate);
+  socket.on("chat_message", handleChatMessage);
+
+  return () => {
+    socket.off("quote_updated", handleQuoteUpdate);
+    socket.off("chat_message", handleChatMessage);
+  };
+}, [role]);
+
 
   // Close dropdowns on outside click
   useEffect(() => {

@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const Quote = require('../models/Quote');
 const socket = require("../socket");  // socket.io instance
-
+const auth = require("../middleware/auth");
 // ---------- Helper: Emit update ----------
 const emitQuoteUpdate = (quote, change = {}) => {
   if (!quote?.customerId) return;
@@ -150,7 +150,8 @@ router.patch('/quotes/:id/reject', async (req, res) => {
 });
 
 // ---------- Update Tracking Step ----------
-router.patch('/quotes/:id/step', async (req, res) => {
+// ---------- Update Tracking Step ----------
+router.patch('/quotes/:id/step', auth, async (req, res) => {
   try {
     const { trackingStep } = req.body;
     const quote = await Quote.findById(req.params.id).populate('customerId', 'name');
@@ -159,6 +160,10 @@ router.patch('/quotes/:id/step', async (req, res) => {
       return res.status(400).json({ message: "Invalid tracking step" });
 
     const prevStep = quote.trackingStep;
+
+    // store user for schema hook
+    quote._updatedBy = req.user._id;
+
     quote.trackingStep = trackingStep;
     await quote.save();
 
@@ -198,23 +203,32 @@ router.patch('/quotes/:id/steps', async (req, res) => {
 });
 
 // ---------- Get Customer Quotes ----------
+// ---------- Get Customer Quotes ----------
 router.get('/quotes/customer/:customerId', async (req, res) => {
   try {
-    const quotes = await Quote.find({ customerId: req.params.customerId }).populate('customerId', 'name');
+    console.log("Fetching quotes for customer:", req.params.customerId);
+    const quotes = await Quote.find({ customerId: req.params.customerId })
+      .populate('customerId', 'name');
+    console.log("Found:", quotes.length);
     res.json(quotes);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// ---------- Get All Quotes (Admin) ----------
-router.get('/quotes', async (req, res) => {
+
+
+router.get("/quotes", auth, async (req, res) => {
   try {
-    const quotes = await Quote.find().populate('customerId', 'name');
+    let query = {};
+    if (req.user.role === "customer") query.customerId = req.user._id;
+
+    const quotes = await Quote.find(query).populate("customerId", "name");
     res.json(quotes);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
+
 
 module.exports = router;

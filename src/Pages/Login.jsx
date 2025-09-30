@@ -39,9 +39,9 @@ const LoginPage = () => {
 
     // ✅ Redirect based on role
     if (user.role === "admin") {
-      navigate("/admin"); // admin landing page
+      navigate("/admin/dashboard"); // admin landing page
     } else {
-      navigate("/orders"); // customer landing page
+      navigate("/welcome"); // customer landing page
     }
   } catch (err) {
     console.error(err);

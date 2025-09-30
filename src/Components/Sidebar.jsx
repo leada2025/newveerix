@@ -20,7 +20,7 @@ const Sidebar = () => {
 
   // Example nav items
   const navItems = [
-    // { label: "Dashboard", path: "/dashboard", icon: <Gauge size={20} /> },
+    { label: "Dashboard", path: "/dashboard", icon: <Gauge size={20} /> },
     { label: "New Order", path: "/orders", icon: <ShoppingCart size={20} /> },
     // { label: "Trademark", path: "/trademark", icon: <FileText size={20} /> },
     // { label: "Packing Status", path: "/packing/status", icon: <PackageCheck size={20} /> },

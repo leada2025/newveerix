@@ -4,7 +4,7 @@ import {
   Bell, CreditCard, Package, Layers, ClipboardList, CheckCircle, Truck, Search, Settings, Users, Home, BarChart2, HelpCircle, Edit2, Eye, MoreHorizontal, Filter, Plus 
 } from 'lucide-react';
 import OrdersForm from "./OrdersForm";
-
+import QuoteChatPortal from '../Components/QuoteChatPortal';
 // ---------- Badge Component ----------
 function Badge({ text }) {
   const color = {
@@ -31,16 +31,24 @@ export default function OrderPage({ customerId }) {
   const statuses = useMemo(() => ['All', 'Pending', 'Quote Sent', 'Paid', 'Approved Quote', 'Payment Requested', 'Rejected'], []);
   const [currentPage, setCurrentPage] = useState(1);
   const ordersPerPage = 10;
-
+const [chatInfo, setChatInfo] = useState({ show: false, quoteId: null, customerId: null });
   // Fetch quotes
-  useEffect(() => {
-    axios.get('/api/quotes')
-      .then(res => {
-        const sorted = res.data.sort((a, b) => b._id.localeCompare(a._id));
-        setQuotes(sorted);
-      })
-      .catch(err => console.error("Failed to fetch quotes:", err));
-  }, []);
+useEffect(() => {
+  const token = localStorage.getItem("authToken"); // matches your login storage
+  if (!token) return;
+
+  axios.get('/api/quotes', {
+    headers: {
+      Authorization: `Bearer ${token}` // backend middleware expects this
+    }
+  })
+  .then(res => {
+    const sorted = res.data.sort((a, b) => b._id.localeCompare(a._id));
+    setQuotes(sorted);
+  })
+  .catch(err => console.error("Failed to fetch quotes:", err));
+}, []);
+
 
   const filtered = quotes
     .filter(o => {
@@ -70,7 +78,9 @@ export default function OrderPage({ customerId }) {
   useEffect(() => {
     setCurrentPage(1);
   }, [query, statusFilter]);
-
+const handleOpenChat = (quoteId, custId) => {
+  setChatInfo({ show: true, quoteId, customerId: custId });
+};
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white text-slate-800 font-sans p-6">
       <div className="max-w-[1200px] mx-auto">
@@ -167,25 +177,39 @@ export default function OrderPage({ customerId }) {
                 </div>
 
                 {/* Stepper (Read-only) */}
-                <div className="space-y-3 mb-4">
-                  {selectedOrder.trackingSteps?.map((step, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <div
-                        className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
-                          ${selectedOrder.trackingStep > idx 
-                            ? "bg-emerald-500 text-white" 
-                            : selectedOrder.trackingStep === idx
-                            ? "bg-emerald-500 text-white" 
-                            : "bg-slate-200 text-slate-500"}`}
-                      >
-                        {selectedOrder.trackingStep >= idx ? "✔" : idx + 1}
-                      </div>
-                      <span className={`text-sm ${selectedOrder.trackingStep === idx ? "font-semibold" : "text-slate-600"}`}>
-                        {step}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+<div className="space-y-3 mb-4">
+  {selectedOrder.trackingSteps?.map((step, idx) => {
+    const history = selectedOrder.trackingHistory?.find(h => h.stepIndex === idx);
+
+    return (
+      <div key={idx} className="flex items-center gap-2">
+        <div
+          className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
+            ${selectedOrder.trackingStep >= idx ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500"}`}
+        >
+          {selectedOrder.trackingStep >= idx ? "✔" : idx + 1}
+        </div>
+
+        {/* Step + Time inline */}
+        <div className="flex items-center gap-2">
+          <span
+            className={`text-sm ${
+              selectedOrder.trackingStep === idx ? "font-semibold" : "text-slate-600"
+            }`}
+          >
+            {step}
+          </span>
+          {history && (
+            <span className="text-xs text-slate-400">
+              {new Date(history.changedAt).toLocaleString()}
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  })}
+</div>
+
               </div>
             ) : (
               <div className="text-sm text-slate-500">Select an order from the list to view details.</div>
@@ -198,9 +222,16 @@ export default function OrderPage({ customerId }) {
           onClose={() => setOpenNewOrder(false)} 
           onCreate={handleCreate} 
           quoteData={editingOrder}  
-          customerId={customerId} 
+          customerId={chatInfo.customerId} 
+           onOpenChat={(quoteId, custId) => handleOpenChat(quoteId, custId)} 
         />
-
+    <QuoteChatPortal
+          show={chatInfo.show}
+          quoteId={chatInfo.quoteId}
+         customerId={chatInfo.customerId} 
+          isAdmin={true}  
+           onClose={() => setChatInfo({ show: false, quoteId: null, customerId: null })}
+        />
         {/* Pagination */}
         <div className="flex justify-between items-center mt-4">
           <div className="text-sm text-slate-500">

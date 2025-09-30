@@ -43,8 +43,29 @@ const QuoteSchema = new mongoose.Schema(
         "Delivered to Client",
       ],
     },
+
+    // 🟢 New: Track history of step changes
+    trackingHistory: [
+      {
+        stepIndex: Number,              // e.g. 2
+        stepName: String,               // e.g. "Packing Design"
+        changedAt: { type: Date, default: Date.now }, // timestamp
+      },
+    ],
   },
   { timestamps: true }
 );
+
+// 🔹 Whenever trackingStep is updated, push to trackingHistory
+QuoteSchema.pre("save", function (next) {
+  if (this.isModified("trackingStep")) {
+    this.trackingHistory.push({
+      stepIndex: this.trackingStep,
+      stepName: this.trackingSteps[this.trackingStep],
+      changedAt: new Date(),
+    });
+  }
+  next();
+});
 
 module.exports = mongoose.model("Quote", QuoteSchema);

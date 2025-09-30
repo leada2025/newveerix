@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { LayoutGrid, Table as TableIcon, Search, ChevronDown } from "lucide-react";
+import { LayoutGrid, Table as TableIcon, Search, ChevronDown,MessageSquare } from "lucide-react";
 import axios from "../../api/Axios";
+import QuoteChatPortal from "../../Components/QuoteChatPortal";
 
 // ---- Status Badge ----
 function StatusBadge({ status }) {
@@ -35,16 +36,21 @@ export default function AdminQuotes() {
   const [loading, setLoading] = useState(false);
 const [currentPage, setCurrentPage] = useState(1);
 const [rowsPerPage, setRowsPerPage] = useState(10);
+const [chatInfo, setChatInfo] = useState({ show: false, quoteId: null, customerId: null });
 
   // ---- Fetch Quotes ----
-  const fetchQuotes = async () => {
-    try {
-      const res = await axios.get("/api/quotes");
-      setQuotes(res.data.quotes || res.data);
-    } catch (err) {
-      console.error("Failed to fetch quotes:", err);
-    }
-  };
+const fetchQuotes = async () => {
+  try {
+    const res = await axios.get("/api/quotes", {
+      headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` }
+    });
+    // Use res.data directly (it's already an array)
+    setQuotes(res.data);
+  } catch (err) {
+    console.error("Failed to fetch quotes:", err);
+  }
+};
+
 
   useEffect(() => {
     fetchQuotes();
@@ -94,7 +100,10 @@ const [rowsPerPage, setRowsPerPage] = useState(10);
       body = { trackingStep: value };
     }
 
-    const res = await axios.patch(url, body);
+    const res = await axios.patch(url, body, {
+      headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` }
+    });
+
     setModalData(null);
     setQuotes(prev => prev.map(q => q._id === id ? res.data : q));
   } catch (err) {
@@ -218,6 +227,7 @@ const totalPages = Math.ceil(processedQuotes.length / rowsPerPage);
     <th className="px-4 py-3 text-left">Rate</th>
     <th className="px-4 py-3 text-left">Payment</th>
     <th className="px-4 py-3 text-left">Status</th>
+    <th className="px-4 py-3 text-left">Chat</th>
     <th className="px-4 py-3 text-left">Actions</th>
     <th className="px-4 py-3 text-left">Tracking</th>
   </tr>
@@ -233,6 +243,24 @@ const totalPages = Math.ceil(processedQuotes.length / rowsPerPage);
       <td className="px-4 py-3">{q.estimatedRate ? `₹${q.estimatedRate}` : "-"}</td>
       <td className="px-4 py-3">{q.requestedAmount ? `₹${q.requestedAmount}` : "-"}</td>
       <td className="px-4 py-3"><StatusBadge status={q.status} /></td>
+      
+      <td className="px-4 py-3">
+  <button
+    onClick={() =>
+      setChatInfo({
+        show: true,
+        quoteId: q._id,
+        customerId: q.customerId?._id,
+      })
+    }
+    className="flex items-center gap-1 px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs"
+    title="Chat with Customer"
+  >
+    <MessageSquare className="w-4 h-4" />
+    Chat
+  </button>
+</td>
+
       <td className="px-4 py-3 ">
         <select
           value=""
@@ -273,7 +301,8 @@ const totalPages = Math.ceil(processedQuotes.length / rowsPerPage);
       )}
 
       {/* Card View */}
-      {view === "card" && (
+ {/* Card View */}
+{view === "card" && (
   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
     {processedQuotes.map((q) => (
       <div
@@ -289,6 +318,22 @@ const totalPages = Math.ceil(processedQuotes.length / rowsPerPage);
         <p className="text-sm">Qty: {q.quantity} {q.unit}</p>
         <p className="text-sm">Rate: {q.estimatedRate ? `₹${q.estimatedRate}` : "-"}</p>
         <p className="text-sm">Payment: {q.requestedAmount ? `₹${q.requestedAmount}` : "-"}</p>
+
+        {/* Chat Button */}
+        <button
+          onClick={() =>
+            setChatInfo({
+              show: true,
+              quoteId: q._id,
+              customerId: q.customerId?._id,
+            })
+          }
+          className="flex items-center gap-1 px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs"
+          title="Chat with Customer"
+        >
+          <MessageSquare className="w-4 h-4" />
+          Chat
+        </button>
 
         {/* Actions */}
         <div className="flex flex-wrap gap-2 mt-2">
@@ -309,27 +354,27 @@ const totalPages = Math.ceil(processedQuotes.length / rowsPerPage);
           </select>
         </div>
 
-        {/* Tracking Step Controls */}
-       {/* Tracking Step Controls */}
-<div className="mt-2">
-  <h4 className="text-sm font-semibold">Tracking Step:</h4>
-  <select
-    value={q.trackingStep}
-    onChange={(e) => performAction("tracking", q._id, Number(e.target.value))}
-    className="w-full border px-2 py-1 rounded text-sm mt-1"
-  >
-    {q.trackingSteps.map((step, index) => (
-      <option key={index} value={index}>
-        {step}
-      </option>
-    ))}
-  </select>
-</div>
+        {/* Tracking Step */}
+        <div className="mt-2">
+          <h4 className="text-sm font-semibold">Tracking Step:</h4>
+          <select
+            value={q.trackingStep}
+            onChange={(e) => performAction("tracking", q._id, Number(e.target.value))}
+            className="w-full border px-2 py-1 rounded text-sm mt-1"
+          >
+            {q.trackingSteps.map((step, index) => (
+              <option key={index} value={index}>
+                {step}
+              </option>
+            ))}
+          </select>
+        </div>
 
       </div>
     ))}
   </div>
 )}
+
 
       {/* Modal */}
      {modalData && (
@@ -404,6 +449,12 @@ const totalPages = Math.ceil(processedQuotes.length / rowsPerPage);
     </select>
   </div>
 </div>
+<QuoteChatPortal
+  show={chatInfo.show}
+  quoteId={chatInfo.quoteId}
+  customerId={chatInfo.customerId}
+  onClose={() => setChatInfo({ show: false, quoteId: null, customerId: null })}
+/>
 
     </div>
   );

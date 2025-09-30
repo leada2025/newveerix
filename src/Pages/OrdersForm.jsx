@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from '../api/Axios';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
-
+import { MessageSquare } from 'lucide-react';
 function Step({ index, label, active, done }) {
   return (
     <div className="flex items-center gap-3">
@@ -18,7 +18,7 @@ function Step({ index, label, active, done }) {
   );
 }
 
-export default function NewOrderModal({ open, onClose, customerId, quoteData,onCreate  }) {
+export default function NewOrderModal({ open, onClose, customerId, quoteData,onCreate,onOpenChat  }) {
   const [step, setStep] = useState(1);
     const [submitted, setSubmitted] = useState(false); 
   const [form, setForm] = useState({
@@ -31,7 +31,7 @@ export default function NewOrderModal({ open, onClose, customerId, quoteData,onC
   const [moleculeOptions, setMoleculeOptions] = useState([]);
   const [quote, setQuote] = useState(null);
 const [showConfirm, setShowConfirm] = useState(false);
-
+const [showChat, setShowChat] = useState(false);
   // ---- Map quote status to step
   const statusOrder = ['Pending', 'Quote Sent', 'Approved Quote', 'Payment Requested', 'Paid'];
 const getStepFromStatus = (status) => {
@@ -262,29 +262,49 @@ const isFormDisabled = !!quote?.status;
 )}
 
           {/* Step 2 */}
-          {step === 2 && (
-            <div>
-              <div className="text-sm font-medium mb-2">Quote Approval</div>
-              <div className="p-4 bg-white rounded-lg border">
-                <p className="text-sm text-slate-600">Estimated Rate:</p>
-                <p className="text-xl font-bold text-emerald-600">
-                  ₹ {quote?.estimatedRate || 'Waiting for admin…'}
-                </p>
-              </div>
-              <div className="mt-4 flex gap-2">
-                <button
-  onClick={() => setShowConfirm(true)} // 👈 open modal instead of direct accept
-  disabled={quote?.status !== 'Quote Sent'}
-  className={`px-4 py-2 rounded-lg bg-emerald-600 text-white
-    ${quote?.status !== 'Quote Sent' ? 'opacity-50 cursor-not-allowed' : ''}`}
->
-  {quote?.status === 'Approved Quote' ? 'Quote Approved' : 'Accept Quote'}
-</button>
+{step === 2 && (
+  <div>
+    <div className="text-sm font-medium mb-2">Quote Approval</div>
 
-                <button onClick={prev} className="px-4 py-2 rounded-lg border">Back</button>
-              </div>
-            </div>
-          )}
+    <div className="p-4 bg-white rounded-lg border">
+      <p className="text-sm text-slate-600">Estimated Rate:</p>
+      <p className="text-xl font-bold text-emerald-600">
+        ₹ {quote?.estimatedRate || 'Waiting for admin…'}
+      </p>
+    </div>
+
+    <div className="mt-4 flex flex-col gap-3">
+      <div className="flex gap-2">
+        <button
+          onClick={() => setShowConfirm(true)}
+          disabled={quote?.status !== 'Quote Sent'}
+          className={`px-4 py-2 rounded-lg bg-emerald-600 text-white
+            ${quote?.status !== 'Quote Sent' ? 'opacity-50 cursor-not-allowed' : ''}`}
+        >
+          {quote?.status === 'Approved Quote' ? 'Quote Approved' : 'Accept Quote'}
+        </button>
+
+        <button onClick={prev} className="px-4 py-2 rounded-lg border">
+          Back
+        </button>
+      </div>
+
+      {/* Request Changes / Chat Button */}
+      <div className="flex items-center gap-2 mt-2">
+        <span className="text-sm font-medium text-slate-700">Request Changes</span>
+        <button
+          onClick={() =>
+    onOpenChat(quote?._id, quote?.customerId?._id)
+  }
+          className="flex items-center justify-center w-8 h-8 bg-[#d1383a] text-white rounded-full hover:bg-red-500 transition-colors"
+          title="Chat with Admin"
+        >
+          <MessageSquare className="w-5 h-5" />
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
           {/* Step 3 */}
           {step === 3 && (

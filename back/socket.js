@@ -1,6 +1,8 @@
 // socket.js
+const Message = require("./models/Message"); 
+const Quote = require("./models/Quote");
 let io = null;
-
+const User = require("./models/User"); 
 module.exports = {
   init: (server) => {
     io = require("socket.io")(server, {
@@ -25,6 +27,56 @@ module.exports = {
     socket.join("admin");
     console.log(`Admin joined admin room: ${socket.id}`);
   });
+
+
+
+    // Customer message
+  socket.on("customer_message", async ({ quoteId, message, customerId }) => {
+        if (!customerId) return;
+        try {
+          const payload = { quoteId, customerId, message, sender: "customer", time: new Date() };
+          await Message.create(payload);
+
+          const quote = await Quote.findById(quoteId).select("brandName");
+          const customer = await User.findById(customerId).select("name"); // <--- get customer name
+
+          const notification = {
+            ...payload,
+            brandName: quote?.brandName || "Unknown",
+            customerName: customer?.name || "Customer", // <--- include name
+          };
+
+          io.to(`customer_${customerId}`).emit("chat_message", notification);
+          io.to("admin").emit("chat_message", notification);
+        } catch (err) {
+          console.error(err);
+        }
+      });
+
+      // Admin message
+      socket.on("admin_message", async ({ quoteId, message, customerId }) => {
+        if (!customerId) return;
+        try {
+          const payload = { quoteId, customerId, message, sender: "admin", time: new Date() };
+          await Message.create(payload);
+
+          const quote = await Quote.findById(quoteId).select("brandName");
+          const customer = await User.findById(customerId).select("name"); // <--- get customer name
+
+          const notification = {
+            ...payload,
+            brandName: quote?.brandName || "Unknown",
+            customerName: customer?.name || "Customer", // <--- include name
+          };
+
+          io.to(`customer_${customerId}`).emit("chat_message", notification);
+          io.to("admin").emit("chat_message", notification);
+        } catch (err) {
+          console.error(err);
+        }
+      });
+
+
 
   socket.on("disconnect", () => {
     console.log("Client disconnected:", socket.id);

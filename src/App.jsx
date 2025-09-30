@@ -5,6 +5,7 @@ import SignupPage from "./Pages/SignupPage";
 import CustomerRoutes from "./Routes/CustomerRoutes";
 import AdminRoutes from "./Routes/AdminRoutes";
 import AppLayout from "./Components/AppLayout"; // customer layout
+import WelcomePage from "./Pages/Welcome";
 
 // 🔹 ProtectedRoute Component
 const ProtectedRoute = ({ children, role }) => {
@@ -23,7 +24,7 @@ function App() {
       {/* Public routes */}
       <Route path="/" element={<SignupPage />} />
       <Route path="/login" element={<LoginPage />} />
-
+   <Route path="/welcome" element={<WelcomePage />} />
       {/* Customer protected routes */}
       <Route
         path="/*"
