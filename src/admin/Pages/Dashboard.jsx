@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import axios from "../../api/Axios";
+import  { useNavigate } from "react-router-dom"
 import {
   FileText,
   Clock,
@@ -25,10 +26,12 @@ import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 
 // ----- Metric Card -----
-function MetricCard({ icon, label, value, color }) {
+// ----- Metric Card -----
+function MetricCard({ icon, label, value, color, onClick }) {
   return (
     <div
-      className={`p-5 rounded-2xl shadow-md ${color} text-white flex items-center gap-4`}
+      onClick={onClick}
+      className={`p-5 rounded-2xl shadow-md ${color} text-white flex items-center gap-4 cursor-pointer hover:scale-[1.02] transition-transform`}
     >
       <div className="p-3 rounded-xl bg-white/20">{icon}</div>
       <div>
@@ -38,6 +41,7 @@ function MetricCard({ icon, label, value, color }) {
     </div>
   );
 }
+
 
 // ----- Status Badge -----
 function StatusBadge({ status }) {
@@ -87,7 +91,7 @@ export default function AdminDashboard() {
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const sliderRef = useRef();
-
+const navigate = useNavigate()
   useEffect(() => {
     const fetchQuotes = async () => {
       try {
@@ -141,41 +145,47 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-[1200px] mx-auto space-y-8">
+      <div className="max-w-7xl  mx-auto space-y-8">
 
         {/* Metrics */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-          <MetricCard
-            color="bg-gradient-to-r from-gray-700 to-gray-900"
-            icon={<FileText className="w-6 h-6 text-white" />}
-            label="Total Quotes"
-            value={metrics.total}
-          />
-          <MetricCard
-            color="bg-gradient-to-r from-amber-500 to-amber-700"
-            icon={<Clock className="w-6 h-6 text-white" />}
-            label="Pending"
-            value={metrics.pending}
-          />
-          <MetricCard
-            color="bg-gradient-to-r from-blue-500 to-blue-700"
-            icon={<FileText className="w-6 h-6 text-white" />}
-            label="Quote Sent"
-            value={metrics.quoteSent}
-          />
-          <MetricCard
-            color="bg-gradient-to-r from-indigo-500 to-indigo-700"
-            icon={<DollarSign className="w-6 h-6 text-white" />}
-            label="Payment Requested"
-            value={metrics.paymentRequested}
-          />
-          <MetricCard
-            color="bg-gradient-to-r from-green-500 to-green-700"
-            icon={<DollarSign className="w-6 h-6 text-white" />}
-            label="Paid"
-            value={metrics.paid}
-          />
-        </div>
+        {/* Metrics */}
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+  <MetricCard
+    color="bg-gradient-to-r from-gray-700 to-gray-900"
+    icon={<FileText className="w-6 h-6 text-white" />}
+    label="Total Quotes"
+    value={metrics.total}
+    onClick={() => navigate("/admin/quote?status=All")}
+  />
+  <MetricCard
+    color="bg-gradient-to-r from-amber-500 to-amber-700"
+    icon={<Clock className="w-6 h-6 text-white" />}
+    label="Pending"
+    value={metrics.pending}
+    onClick={() => navigate("/admin/quote?status=Pending")}
+  />
+  <MetricCard
+    color="bg-gradient-to-r from-blue-500 to-blue-700"
+    icon={<FileText className="w-6 h-6 text-white" />}
+    label="Quote Sent"
+    value={metrics.quoteSent}
+    onClick={() => navigate("/admin/quote?status=Quote Sent")}
+  />
+  <MetricCard
+    color="bg-gradient-to-r from-indigo-500 to-indigo-700"
+    icon={<DollarSign className="w-6 h-6 text-white" />}
+    label="Payment Requested"
+    value={metrics.paymentRequested}
+    onClick={() => navigate("/admin/quote?status=Payment Requested")}
+  />
+  <MetricCard
+    color="bg-gradient-to-r from-green-500 to-green-700"
+    icon={<DollarSign className="w-6 h-6 text-white" />}
+    label="Paid"
+    value={metrics.paid}
+    onClick={() => navigate("/admin/quote?status=Paid")}
+  />
+</div>
 
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -219,48 +229,69 @@ export default function AdminDashboard() {
         </div>
 
         {/* Recent Quotes Carousel */}
-        <div className="bg-white p-6 rounded-2xl shadow-md relative">
-          <h2 className="text-lg font-semibold mb-4">Recent Quotes</h2>
-          {loading ? (
-            <p className="text-sm text-slate-500">Loading...</p>
-          ) : quotes.length === 0 ? (
-            <p className="text-sm text-slate-500">No quotes found.</p>
-          ) : (
-            <>
-              <Slider ref={sliderRef} {...sliderSettings}>
-                {quotes.slice(0, 10).map((q) => (
-                  <div
-                    key={q._id}
-                    className="bg-white p-4 rounded-2xl border hover:shadow-lg transition mx-2 flex flex-col gap-2"
-                  >
-                    <div className="flex justify-between items-center">
-                      <p className="text-xs text-slate-500">{new Date(q.createdAt).toLocaleDateString()}</p>
-                      <StatusBadge status={q.status} />
-                    </div>
-                    <p className="font-semibold text-sm">{q.customerId?.name || "Customer"}</p>
-                    <p className="font-medium">{q.brandName || "-"}</p>
-                    <p className="text-sm text-slate-500">{q.moleculeName || `Custom: ${q.customMolecule}`}</p>
-                    <p className="text-sm">Qty: {q.quantity} {q.unit}</p>
-                  </div>
-                ))}
-              </Slider>
+        {/* Recent Quotes (Professional List) */}
+<div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+  {/* Header */}
+  <div className="flex items-center justify-between mb-5">
+    <h2 className="text-lg font-semibold text-slate-800">Recent Quotes</h2>
+    <button
+      onClick={() => navigate("/admin/quote")}
+      className="text-sm text-[#d1383a] hover:text-[#b52f31] hover:underline font-medium transition"
+    >
+      View All
+    </button>
+  </div>
 
-              {/* Left/Right Arrows */}
-              <div
-                className="absolute top-1/2 -translate-y-1/2 left-2 z-10 cursor-pointer bg-white p-2 rounded-full shadow hover:bg-slate-100"
-                onClick={() => sliderRef.current.slickPrev()}
-              >
-                <ArrowLeft size={20} />
+  {loading ? (
+    <p className="text-sm text-slate-500 py-2">Loading...</p>
+  ) : quotes.length === 0 ? (
+    <p className="text-sm text-slate-500 py-2">No quotes found.</p>
+  ) : (
+    <div className="space-y-4">
+      {quotes
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .slice(0, 5)
+        .map((q) => (
+          <div
+            key={q._id}
+            className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200 bg-white"
+          >
+            {/* Left — Customer & Quote info */}
+            <div className="flex items-center gap-4">
+              {/* Optional avatar/icon */}
+              <div className="w-10 h-10 bg-[#d1383a]/20 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                {q.customerId?.name?.[0] || "C"}
               </div>
-              <div
-                className="absolute top-1/2 -translate-y-1/2 right-2 z-10 cursor-pointer bg-white p-2 rounded-full shadow hover:bg-slate-100"
-                onClick={() => sliderRef.current.slickNext()}
-              >
-                <ArrowRight size={20} />
+              <div className="flex flex-col">
+                <span className="font-medium text-slate-800 text-sm sm:text-base">
+                  {q.customerId?.name || "Customer"}
+                </span>
+                <span className="text-slate-500 text-sm">
+                  {q.brandName || "-"} — {q.moleculeName || `Custom: ${q.customMolecule || "-"}`}
+                </span>
               </div>
-            </>
-          )}
-        </div>
+            </div>
+
+            {/* Right — Meta info */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4 mt-3 sm:mt-0">
+              <span className="text-sm font-medium text-slate-700">
+                Qty: {q.quantity} {q.unit}
+              </span>
+              <span className="text-xs text-slate-400 whitespace-nowrap">
+                {new Date(q.createdAt).toLocaleDateString("en-IN", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })}
+              </span>
+              <StatusBadge status={q.status} />
+            </div>
+          </div>
+        ))}
+    </div>
+  )}
+</div>
+
 
       </div>
     </div>

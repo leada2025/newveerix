@@ -5,7 +5,9 @@ import {
 } from 'lucide-react';
 import OrdersForm from "./OrdersForm";
 import QuoteChatPortal from '../Components/QuoteChatPortal';
-// ---------- Badge Component ----------
+import { useLocation } from "react-router-dom";
+import socket from "../Components/Socket";
+
 function Badge({ text }) {
   const color = {
     'Pending': 'bg-amber-100 text-amber-800',
@@ -81,6 +83,38 @@ useEffect(() => {
 const handleOpenChat = (quoteId, custId) => {
   setChatInfo({ show: true, quoteId, customerId: custId });
 };
+const location = useLocation();
+
+useEffect(() => {
+  if (location.state?.statusFilter) {
+    setStatusFilter(location.state.statusFilter);
+  }
+}, [location.state]);
+// Live updates for quotes
+useEffect(() => {
+  const handleQuoteUpdate = ({ quote }) => {
+    console.log("📡 Quote updated:", quote.status);
+
+    setQuotes((prev) => {
+      const index = prev.findIndex((q) => q._id === quote._id);
+      if (index >= 0) {
+        const updated = [...prev];
+        updated[index] = quote;
+        return updated;
+      } else {
+        return [quote, ...prev];
+      }
+    });
+
+    // 👇 ALSO update the selected order if it's the same quote
+    setSelectedOrder((prev) => (prev?._id === quote._id ? quote : prev));
+  };
+
+  socket.on("quote_updated", handleQuoteUpdate);
+  return () => socket.off("quote_updated", handleQuoteUpdate);
+}, []);
+
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white text-slate-800 font-sans p-6">
       <div className="max-w-[1200px] mx-auto">
@@ -144,7 +178,7 @@ const handleOpenChat = (quoteId, custId) => {
                       <td className="py-3"><Badge text={o.status} /></td>
                       <td className="py-3 text-right">
                         <div className="inline-flex items-center gap-2">
-                          <button className="p-2 rounded-md hover:bg-slate-100" onClick={() => setSelectedOrder(o)}><Eye className="w-4 h-4"/></button>
+                          
                           <button className="p-2 rounded-md hover:bg-slate-100" onClick={() => handleEdit(o)}><Edit2 className="w-4 h-4"/></button>
                         </div>
                       </td>
@@ -229,7 +263,7 @@ const handleOpenChat = (quoteId, custId) => {
           show={chatInfo.show}
           quoteId={chatInfo.quoteId}
          customerId={chatInfo.customerId} 
-          isAdmin={true}  
+            isAdmin={false} 
            onClose={() => setChatInfo({ show: false, quoteId: null, customerId: null })}
         />
         {/* Pagination */}

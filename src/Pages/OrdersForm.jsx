@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from '../api/Axios';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { MessageSquare } from 'lucide-react';
+import socket from "../Components/Socket"; // ✅ Make sure this import path is correct
+
 function Step({ index, label, active, done }) {
   return (
     <div className="flex items-center gap-3">
@@ -91,8 +93,7 @@ const isStepDone = (index) => {
       .catch(err => console.error('Failed to fetch molecules:', err));
   }, [open]);
 
-  if (!open) return null;
-
+  
  // Determine max step allowed based on quote status
 const getMaxStep = () => {
   if (!quote) return 2; // Only step 1 available if no quote
@@ -152,6 +153,39 @@ const isSubmitDisabled =
   !!quote?.status; // disable if any status exists
 
 const isFormDisabled = !!quote?.status; 
+
+// All your hooks (useState, useEffect, etc.)
+useEffect(() => {
+  if (!open) return; // run only when modal open
+
+  if (!socket.connected) {
+    socket.connect();
+  }
+
+  const user = JSON.parse(localStorage.getItem("user"));
+  if (user?._id) {
+    socket.emit("joinRoom", `customer_${user._id}`);
+  }
+
+  const handleQuoteUpdate = (data) => {
+    const updated = data.quote;
+    setQuote((prev) => {
+      if (!prev || updated._id !== prev._id) return prev;
+      setStep(getStepFromStatus(updated.status));
+      return updated;
+    });
+  };
+
+  socket.on("quote_updated", handleQuoteUpdate);
+
+  return () => {
+    socket.off("quote_updated", handleQuoteUpdate);
+    socket.disconnect(); // 👈 ensure proper cleanup when modal closes
+  };
+}, [open]);
+
+if (!open) return null;
+
 
 
   return (

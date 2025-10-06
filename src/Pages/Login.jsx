@@ -1,55 +1,54 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "../api/Axios";
-import { Eye, EyeOff } from "lucide-react"; // 👈 add icons
+import { Eye, EyeOff } from "lucide-react";
 import veerixLogo from "../assets/v_logo.png";
 
 const LoginPage = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false); // 👈 toggle state
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
 
- const handleLogin = async (e) => {
-  e.preventDefault();
-  try {
-    const res = await axios.post("/api/users/login", {
-      email,
-      password,
-    });
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError("");
 
-    const { token, user } = res.data;
+    try {
+      const res = await axios.post("/api/users/login", { email, password });
 
-    // ✅ Store auth token
-    localStorage.setItem("authToken", token);
+      const { token, user } = res.data;
 
-    // ✅ Store user with _id (matching MongoDB IDs)
-    localStorage.setItem(
-      "user",
-      JSON.stringify({
-        _id: user._id,   // 👈 use _id, not id
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      })
-    );
+      // ✅ Normalize role name (handles string or populated object)
+      const roleName =
+        typeof user.role === "object" ? user.role.name : user.role;
 
-    // 🔥 Socket will join correct room using _id
+      // ✅ Store token & user info
+      localStorage.setItem("authToken", token);
+      localStorage.setItem(
+        "user",
+        JSON.stringify({
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          role: roleName,
+           permissions: user.permissions || []  
+        })
+      );
 
-    // ✅ Redirect based on role
-    if (user.role === "admin") {
-      navigate("/admin/dashboard"); // admin landing page
-    } else {
-      navigate("/welcome"); // customer landing page
+      // ✅ Dynamic Navigation Logic
+      if (roleName?.toLowerCase() === "customer") {
+        navigate("/welcome");
+      } else {
+        // anything else like admin, manager, designer, sales, etc.
+        navigate("/admin/dashboard");
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Invalid email or password");
     }
-  } catch (err) {
-    console.error(err);
-    setError("Invalid email or password");
-  }
-};
-
-
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 bg-[#f0f9ff]">
@@ -57,11 +56,14 @@ const LoginPage = () => {
         <div className="flex justify-center">
           <img src={veerixLogo} alt="Veerix Logo" className="h-16" />
         </div>
+
         <h2 className="text-2xl font-bold text-center text-[#d1383a]">
           Veerix Login
         </h2>
 
-        {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+        {error && (
+          <p className="text-red-500 text-sm text-center font-medium">{error}</p>
+        )}
 
         <form className="space-y-4" onSubmit={handleLogin}>
           {/* Email */}
@@ -75,6 +77,7 @@ const LoginPage = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+              placeholder="Enter your email"
             />
           </div>
 
@@ -90,10 +93,11 @@ const LoginPage = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="mt-1 w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                placeholder="Enter your password"
               />
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
+                onClick={() => setShowPassword((prev) => !prev)}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}

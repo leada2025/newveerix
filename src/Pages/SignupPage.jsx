@@ -25,7 +25,9 @@ const SignupPage = () => {
       localStorage.setItem("authToken", token);
       localStorage.setItem("user", JSON.stringify(user));
 
-      navigate("/login"); // after signup, go to dashboard
+     
+    alert("🎉 Signup successful! Please log in to continue.");
+    navigate("/login"); // after signup, go to dashboard
     } catch (err) {
       console.error(err);
       setError(err.response?.data?.message || "Signup failed");

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import socket from "./Socket";
 import axios from "../api/Axios";
-import { MessageSquare, X } from "lucide-react";
+import { X } from "lucide-react";
 
 export default function QuoteChatPopup({ quoteId, customerId, onClose, isAdmin }) {
   const [messages, setMessages] = useState([]);
@@ -9,63 +9,62 @@ export default function QuoteChatPopup({ quoteId, customerId, onClose, isAdmin }
   const messagesEndRef = useRef(null);
   const handlerRef = useRef(null);
 
-  // Scroll to bottom on new message
+  // 🔹 Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Fetch chat history when popup opens or quoteId changes
+  // 🔹 Fetch previous chat history
   useEffect(() => {
     if (!quoteId) return;
+
     const fetchMessages = async () => {
       try {
         const res = await axios.get(`/api/messages/${quoteId}`);
-        // Sort by time ascending
         const sorted = res.data.sort((a, b) => new Date(a.time) - new Date(b.time));
         setMessages(sorted);
       } catch (err) {
-        console.error("Failed to fetch messages:", err);
+        console.error("❌ Failed to fetch messages:", err);
       }
     };
     fetchMessages();
   }, [quoteId]);
 
-  // Join room and listen for new messages - reset handler on quoteId change
+  // 🔹 Setup socket connection & listeners
   useEffect(() => {
     if (!socket.connected) socket.connect();
 
-    if (isAdmin) {
-      socket.emit("join_admin");
-    } else {
-      socket.emit("join_customer", customerId);
-    }
+    if (isAdmin) socket.emit("join_admin");
+    else socket.emit("join_customer", customerId);
 
-    // Remove previous handler if any
+    // Remove any old listeners
     if (handlerRef.current) {
       socket.off("chat_message", handlerRef.current);
       handlerRef.current = null;
     }
 
-    // Setup new handler
-    handlerRef.current = ({ quoteId: qId, message, sender, time }) => {
-      if (qId === quoteId) {
-        setMessages((prev) => {
-          // Deduplicate by message + time + sender (adjust if you have unique IDs)
-          const exists = prev.some(
-            (m) => m.message === message && m.time === time && m.sender === sender
-          );
-          if (exists) return prev;
+    handlerRef.current = (msg) => {
+      const { quoteId: qId, message, sender, time, target, customerName, customerId: msgCustomerId } = msg;
 
-          const newMessages = [...prev, { message, sender, time }];
-          // Sort after adding
-          return newMessages.sort((a, b) => new Date(a.time) - new Date(b.time));
-        });
-      }
+      if (qId !== quoteId) return;
+      if (isAdmin && target !== "admin") return;
+      if (!isAdmin && target !== "customer") return;
+      if (!isAdmin && msgCustomerId !== customerId) return;
+
+      setMessages((prev) => {
+        const exists = prev.some(
+          (m) =>
+            m.message === message &&
+            m.sender === sender &&
+            new Date(m.time).getTime() === new Date(time).getTime()
+        );
+        if (exists) return prev;
+        return [...prev, { message, sender, time, customerName }];
+      });
     };
 
     socket.on("chat_message", handlerRef.current);
 
-    // Cleanup on unmount or quoteId change
     return () => {
       if (handlerRef.current) {
         socket.off("chat_message", handlerRef.current);
@@ -74,10 +73,9 @@ export default function QuoteChatPopup({ quoteId, customerId, onClose, isAdmin }
     };
   }, [quoteId, customerId, isAdmin]);
 
+  // 🔹 Send message
   const sendMessage = () => {
     if (!input.trim()) return;
-
-    console.log("Sending message:", input); // For debugging duplicate sends
 
     socket.emit(isAdmin ? "admin_message" : "customer_message", {
       quoteId,
@@ -86,6 +84,37 @@ export default function QuoteChatPopup({ quoteId, customerId, onClose, isAdmin }
     });
 
     setInput("");
+  };
+
+  // 🔹 Render message bubble
+  const renderMessage = (m, idx) => {
+    const isMine = isAdmin ? m.sender === "admin" : m.sender === "customer";
+
+    // Label logic
+    const senderLabel = isMine
+      ? "You"
+      : isAdmin
+      ? m.customerName || "Customer"
+      : "Admin";
+
+    return (
+      <div key={idx} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
+        <div
+          className={`p-2 rounded-lg max-w-[70%] text-sm ${
+            isMine ? "bg-emerald-600 text-white" : "bg-white text-gray-800 border"
+          }`}
+        >
+          <div className="font-semibold text-xs mb-1">{senderLabel}</div>
+          {m.message}
+          <div className="text-xs text-gray-400 mt-1 text-right">
+            {new Date(m.time).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -100,25 +129,7 @@ export default function QuoteChatPopup({ quoteId, customerId, onClose, isAdmin }
 
       {/* Messages */}
       <div className="flex-1 p-3 overflow-y-auto max-h-64 space-y-2 bg-gray-50">
-        {messages.map((m, idx) => (
-          <div
-            key={idx}
-            className={`flex ${m.sender === "customer" ? "justify-end" : "justify-start"}`}
-          >
-            <div
-              className={`p-2 rounded-lg max-w-[70%] text-sm ${
-                m.sender === "customer"
-                  ? "bg-emerald-600 text-white"
-                  : "bg-white text-gray-800 border"
-              }`}
-            >
-              {m.message}
-              <div className="text-xs text-gray-400 mt-1 text-right">
-                {new Date(m.time).toLocaleTimeString()}
-              </div>
-            </div>
-          </div>
-        ))}
+        {messages.map(renderMessage)}
         <div ref={messagesEndRef} />
       </div>
 
@@ -136,7 +147,7 @@ export default function QuoteChatPopup({ quoteId, customerId, onClose, isAdmin }
           onClick={sendMessage}
           className="px-3 py-2 bg-emerald-600 text-white rounded-full"
         >
-            Send
+          Send
         </button>
       </div>
     </div>

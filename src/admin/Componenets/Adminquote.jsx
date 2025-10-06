@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { LayoutGrid, Table as TableIcon, Search, ChevronDown,MessageSquare } from "lucide-react";
 import axios from "../../api/Axios";
 import QuoteChatPortal from "../../Components/QuoteChatPortal";
+import { useLocation } from "react-router-dom";
 
 // ---- Status Badge ----
 function StatusBadge({ status }) {
@@ -37,7 +38,7 @@ export default function AdminQuotes() {
 const [currentPage, setCurrentPage] = useState(1);
 const [rowsPerPage, setRowsPerPage] = useState(10);
 const [chatInfo, setChatInfo] = useState({ show: false, quoteId: null, customerId: null });
-
+const location = useLocation();
   // ---- Fetch Quotes ----
 const fetchQuotes = async () => {
   try {
@@ -151,7 +152,14 @@ const paginatedQuotes = useMemo(() => {
 }, [processedQuotes, currentPage, rowsPerPage]);
 
 const totalPages = Math.ceil(processedQuotes.length / rowsPerPage);
+useEffect(() => {
+  const params = new URLSearchParams(location.search);
+  const statusParam = params.get("status");
 
+  if (statusParam) {
+    setFilterStatus(statusParam);
+  }
+}, [location.search]);
 
   return (
     <div className="p-6 bg-slate-50 min-h-screen">
@@ -454,6 +462,7 @@ const totalPages = Math.ceil(processedQuotes.length / rowsPerPage);
   quoteId={chatInfo.quoteId}
   customerId={chatInfo.customerId}
   onClose={() => setChatInfo({ show: false, quoteId: null, customerId: null })}
+   isAdmin={true}
 />
 
     </div>

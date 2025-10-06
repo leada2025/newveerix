@@ -9,6 +9,7 @@ const moleculeRoutes = require("./routes/moleculeRoutes");
 const quoteRoutes = require("./routes/quoteRoutes");
 const socket = require("./socket"); // ✅ import socket helper
 const messageRoutes = require("./routes/messageRoutes"); 
+const roleRoutes = require("./routes/roleRoutes")
 dotenv.config();
 
 const app = express();
@@ -28,6 +29,7 @@ mongoose
 app.use("/api/users", userRoutes);
 app.use("/api/molecules", moleculeRoutes);
 app.use("/api", quoteRoutes);
+app.use("/api/roles", roleRoutes);
 app.use("/api/messages", require("./routes/messageRoutes"));
 
 const server = http.createServer(app);

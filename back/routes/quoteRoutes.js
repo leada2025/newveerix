@@ -4,7 +4,7 @@ const router = express.Router();
 const Quote = require('../models/Quote');
 const socket = require("../socket");  // socket.io instance
 const auth = require("../middleware/auth");
-// ---------- Helper: Emit update ----------
+const authorize = require("../middleware/authorize");// ---------- Helper: Emit update ----------
 const emitQuoteUpdate = (quote, change = {}) => {
   if (!quote?.customerId) return;
   const io = socket.getIO();
@@ -39,7 +39,7 @@ router.post('/quotes', async (req, res) => {
 });
 
 // ---------- Approve quote (Admin) ----------
-router.patch('/quotes/:id/approve', async (req, res) => {
+router.patch('/quotes/:id/approve',auth, authorize(["manage_quotes"]), async (req, res) => {
   try {
     const quote = await Quote.findById(req.params.id).populate('customerId', 'name');
     if (!quote) return res.status(404).json({ message: "Quote not found" });
@@ -76,7 +76,7 @@ router.patch('/quotes/:id/approve-customer', async (req, res) => {
 });
 
 // ---------- Request Payment (Admin) ----------
-router.patch('/quotes/:id/payment', async (req, res) => {
+router.patch('/quotes/:id/payment',auth, authorize(["manage_quotes"]), async (req, res) => {
   try {
     const quote = await Quote.findById(req.params.id).populate('customerId', 'name');
     if (!quote) return res.status(404).json({ message: "Quote not found" });
@@ -118,7 +118,7 @@ router.patch('/quotes/:id/customer-payment', async (req, res) => {
 });
 
 // ---------- Mark Paid (Admin) ----------
-router.patch('/quotes/:id/paid', async (req, res) => {
+router.patch('/quotes/:id/paid',auth, authorize(["manage_quotes"]), async (req, res) => {
   try {
     const quote = await Quote.findByIdAndUpdate(
       req.params.id,
@@ -134,7 +134,7 @@ router.patch('/quotes/:id/paid', async (req, res) => {
 });
 
 // ---------- Reject Quote (Admin) ----------
-router.patch('/quotes/:id/reject', async (req, res) => {
+router.patch('/quotes/:id/reject',auth, authorize(["manage_quotes"]), async (req, res) => {
   try {
     const quote = await Quote.findByIdAndUpdate(
       req.params.id,
@@ -151,7 +151,7 @@ router.patch('/quotes/:id/reject', async (req, res) => {
 
 // ---------- Update Tracking Step ----------
 // ---------- Update Tracking Step ----------
-router.patch('/quotes/:id/step', auth, async (req, res) => {
+router.patch('/quotes/:id/step', auth, authorize(["manage_quotes"]), async (req, res) => {
   try {
     const { trackingStep } = req.body;
     const quote = await Quote.findById(req.params.id).populate('customerId', 'name');
@@ -217,8 +217,12 @@ router.get('/quotes/customer/:customerId', async (req, res) => {
 });
 
 
-
-router.get("/quotes", auth, async (req, res) => {
+router.get("/quotes", auth, async (req, res, next) => {
+  if (req.user.role !== "customer") {
+    return authorize(["view_quotes"])(req, res, next);
+  }
+  next();
+}, async (req, res) => {
   try {
     let query = {};
     if (req.user.role === "customer") query.customerId = req.user._id;
@@ -229,6 +233,7 @@ router.get("/quotes", auth, async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+
 
 
 module.exports = router;

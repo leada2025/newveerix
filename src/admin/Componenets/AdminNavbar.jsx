@@ -70,27 +70,36 @@ useEffect(() => {
   };
 
   // Handle chat messages
-  const handleChatMessage = (msg) => {
-    const customerName = msg.customerName || "Customer";
-    const message = `[Chat] ${msg.brandName} (Customer: ${customerName}): ${msg.message}`;
+  // Handle chat messages (only show messages from customers)
+const handleChatMessage = (msg) => {
+  // ✅ Ignore messages sent by admin themselves
+  if (msg.sender === "admin") return;
 
-    setNotifications((prev) => {
-      // ✅ Prevent duplicate messages
-      if (prev.some((n) => n.message === message)) return prev;
+  // ✅ Only show messages that are targeted to admin
+  if (msg.target !== "admin") return;
 
-      const updated = [
-        {
-          id: Date.now(),
-          message,
-          time: new Date().toLocaleTimeString(),
-          type: "chat",
-        },
-        ...prev,
-      ];
-      localStorage.setItem("admin_notifications", JSON.stringify(updated));
-      return updated;
-    });
-  };
+  const customerName = msg.customerName || "Customer";
+  const message = `[Chat] ${msg.brandName} (Customer: ${customerName}): ${msg.message}`;
+
+  setNotifications((prev) => {
+    // Prevent duplicates
+    if (prev.some((n) => n.message === message)) return prev;
+
+    const updated = [
+      {
+        id: Date.now(),
+        message,
+        time: new Date().toLocaleTimeString(),
+        type: "chat",
+      },
+      ...prev,
+    ];
+
+    localStorage.setItem("admin_notifications", JSON.stringify(updated));
+    return updated;
+  });
+};
+
 
   socket.on("quote_updated", handleQuoteUpdate);
   socket.on("chat_message", handleChatMessage);
@@ -194,7 +203,7 @@ useEffect(() => {
         </div>
 
         {/* Settings Dropdown */}
-        {role === "admin" && (
+    
           <>
             <button
               onClick={() => setSettingsDropdownOpen(!settingsDropdownOpen)}
@@ -209,7 +218,16 @@ useEffect(() => {
                   <li>
                     <button
                       onClick={() => {
-                        navigate("/admin/users");
+                        navigate("/admin/role");
+                        setSettingsDropdownOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2 hover:bg-gray-100"
+                    >
+                      Role Management
+                    </button>
+                    <button
+                      onClick={() => {
+                        navigate("/admin/useraccess");
                         setSettingsDropdownOpen(false);
                       }}
                       className="w-full text-left px-4 py-2 hover:bg-gray-100"
@@ -221,7 +239,7 @@ useEffect(() => {
               </div>
             )}
           </>
-        )}
+  
 
         {/* Logout */}
         <button

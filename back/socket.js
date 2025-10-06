@@ -46,8 +46,8 @@ module.exports = {
             customerName: customer?.name || "Customer", // <--- include name
           };
 
-          io.to(`customer_${customerId}`).emit("chat_message", notification);
-          io.to("admin").emit("chat_message", notification);
+    io.to(`customer_${customerId}`).emit("chat_message", { ...notification, target: "customer" });
+io.to("admin").emit("chat_message", { ...notification, target: "admin" });
         } catch (err) {
           console.error(err);
         }
@@ -69,8 +69,8 @@ module.exports = {
             customerName: customer?.name || "Customer", // <--- include name
           };
 
-          io.to(`customer_${customerId}`).emit("chat_message", notification);
-          io.to("admin").emit("chat_message", notification);
+       io.to(`customer_${customerId}`).emit("chat_message", { ...notification, target: "customer" });
+io.to("admin").emit("chat_message", { ...notification, target: "admin" });
         } catch (err) {
           console.error(err);
         }

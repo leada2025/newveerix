@@ -12,11 +12,11 @@ import {
 
 const veerixSidebarLinks = [
   { name: "Dashboard", icon: LayoutDashboard, path: "/admin/dashboard" },
-//   {
-//     name: "Customers",
-//     icon: Users,
-//     submenu: [{ label: "Customer Details", path: "/admin/customer" }],
-//   },
+  {
+    name: "Customers",
+    icon: Users,
+    submenu: [{ label: "Customer Details", path: "/admin/customer" }],
+  },
   {
     name: "Quote Requests",
     icon: Home,
