@@ -180,7 +180,7 @@ export default function QuoteChatPopup({ quoteId, customerId, onClose, isAdmin }
         onMouseDown={handleMouseDown}
         onTouchStart={handleTouchStart}
       >
-        <span className="font-semibold">Chat</span>
+        <span className="font-semibold">Chats</span>
         <button onClick={onClose}>
           <X className="w-5 h-5" />
         </button>
