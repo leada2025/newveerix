@@ -15,12 +15,10 @@ dotenv.config();
 
 const app = express();
 app.use(express.json());
-app.use(
-  cors({
-    origin: "http://localhost:5173",
-    credentials: true,
-  })
-);
+app.use(cors({
+  origin: ["http://localhost:5173","http://localhost:5174", "https://newveerix.vercel.app"],
+  credentials: true,
+}));
 
 mongoose
   .connect(process.env.MONGO_URI)
