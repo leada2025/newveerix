@@ -38,7 +38,9 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
+// ✅ Optional, but safe fallback for Express 5:
+app.options(/.*/, cors(corsOptions));
+
 
 
 mongoose
