@@ -4,13 +4,22 @@ const router = express.Router();
 const Quote = require('../models/Quote');
 const socket = require("../socket");  // socket.io instance
 const auth = require("../middleware/auth");
-const authorize = require("../middleware/authorize");// ---------- Helper: Emit update ----------
-const emitQuoteUpdate = (quote, change = {}) => {
+const authorize = require("../middleware/authorize");
+const Notification = require("../models/Notification");
+// ---------- Helper: Emit update ----------
+const emitQuoteUpdate = async(quote, change = {}) => {
   if (!quote?.customerId) return;
   const io = socket.getIO();
 
   const customerIdStr = quote.customerId._id ? quote.customerId._id.toString() : quote.customerId.toString();
 
+  await Notification.create({
+    userId: quote.customerId,
+    title: "Quote Update",
+    message: change.message || `Quote status updated to ${quote.status}`,
+    type: "quote",
+    relatedId: quote._id
+  });
   // 👤 Notify customer
   io.to(`customer_${customerIdStr}`).emit("quote_updated", { quote, change });
 
