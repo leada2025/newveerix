@@ -17,6 +17,7 @@ const app = express();
 app.use(express.json());
 app.use(cors({
   origin: ["http://localhost:5173","http://localhost:5174", "https://newveerix.vercel.app"],
+   methods: ["GET", "POST", "PUT", "DELETE","PATCH"],
   credentials: true,
 }));
 
