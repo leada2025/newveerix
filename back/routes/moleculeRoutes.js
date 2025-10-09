@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const Molecule = require("../models/Molecule");
 const authorize = require("../middleware/authorize");
+const auth = require("../middleware/auth");
 // ✅ Get all molecules (sorted by name)
 router.get("/", async (req, res) => {
   try {
@@ -14,7 +15,7 @@ router.get("/", async (req, res) => {
 });
 
 // ✅ Add new molecule (with optional amount)
-router.post("/",authorize(["manage_quotes"]), async (req, res) => {
+router.post("/", auth,authorize(["manage_quotes"]), async (req, res) => {
   try {
     const { name, amount } = req.body;
 
@@ -36,7 +37,7 @@ router.post("/",authorize(["manage_quotes"]), async (req, res) => {
 });
 
 // ✅ Update molecule name or amount
-router.patch("/:id",authorize(["manage_quotes"]), async (req, res) => {
+router.patch("/:id", auth,authorize(["manage_quotes"]), async (req, res) => {
   try {
     const updateData = {};
 
@@ -52,7 +53,7 @@ router.patch("/:id",authorize(["manage_quotes"]), async (req, res) => {
 });
 
 // ✅ Delete molecule
-router.delete("/:id",authorize(["manage_quotes"]), async (req, res) => {
+router.delete("/:id",auth,authorize(["manage_quotes"]), async (req, res) => {
   try {
     await Molecule.findByIdAndDelete(req.params.id);
     res.json({ message: "Deleted" });

@@ -24,19 +24,27 @@ const AdminMoleculePanel = () => {
     fetchMolecules();
   }, []);
 
+  // ✅ Helper: Get token from localStorage
+  const getAuthHeader = () => {
+    const token = localStorage.getItem("authToken");
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
   const handleAdd = async () => {
     if (!newMolecule.trim()) return;
     setLoading(true);
     try {
-      await axios.post("/api/molecules", {
-        name: newMolecule.trim(),
-        amount: Number(newAmount) || 0,
-      });
+      await axios.post(
+        "/api/molecules",
+        { name: newMolecule.trim(), amount: Number(newAmount) || 0 },
+        { headers: getAuthHeader() } // ✅ attach token here
+      );
       setNewMolecule("");
       setNewAmount("");
       fetchMolecules();
     } catch (err) {
-      alert("Error adding molecule. It may already exist.");
+      console.error("Error adding molecule:", err.response?.data || err.message);
+      alert("Error adding molecule. You may not be authorized.");
     } finally {
       setLoading(false);
     }
@@ -45,26 +53,29 @@ const AdminMoleculePanel = () => {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this molecule?")) return;
     try {
-      await axios.delete(`/api/molecules/${id}`);
+      await axios.delete(`/api/molecules/${id}`, { headers: getAuthHeader() });
       fetchMolecules();
     } catch (err) {
-      console.error("Delete error", err);
+      console.error("Delete error:", err.response?.data || err.message);
+      alert("Error deleting molecule. You may not be authorized.");
     }
   };
 
   const handleEdit = async (id) => {
     if (!editValue.trim()) return;
     try {
-      await axios.patch(`/api/molecules/${id}`, {
-        name: editValue.trim(),
-        amount: Number(editAmount) || 0,
-      });
+      await axios.patch(
+        `/api/molecules/${id}`,
+        { name: editValue.trim(), amount: Number(editAmount) || 0 },
+        { headers: getAuthHeader() } // ✅ attach token
+      );
       setEditId(null);
       setEditValue("");
       setEditAmount("");
       fetchMolecules();
     } catch (err) {
-      alert("Error updating molecule.");
+      console.error("Error updating molecule:", err.response?.data || err.message);
+      alert("Error updating molecule. You may not be authorized.");
     }
   };
 
@@ -97,7 +108,7 @@ const AdminMoleculePanel = () => {
         </button>
       </div>
 
-      {/* Molecule List (Table) */}
+      {/* Molecule List */}
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-sm">
           <thead className="bg-gray-100 text-gray-600 text-left">
