@@ -188,7 +188,7 @@ useEffect(() => {
 }, [location.search]);
 
   return (
-    <div className="p-6 bg-slate-50 min-h-screen max-w-6xl items-center">
+    <div className="p-6 bg-slate-50 min-h-screen max-w-9xl justify-center">
       <h1 className="text-2xl font-bold text-slate-800 mb-4">Quotes Management</h1>
 
       {/* Toolbar */}
@@ -250,7 +250,7 @@ useEffect(() => {
       {/* Table View */}
       {view === "table" && (
        
-        <div className="overflow-x-hidden bg-white rounded-xl shadow ">
+        <div className="overflow-x-hidden flex justify-center bg-white rounded-xl shadow ">
           <table className="w-full text-sm">
             <thead className="bg-slate-100 text-slate-700 text-xs uppercase">
   <tr>
