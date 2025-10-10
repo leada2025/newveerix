@@ -188,7 +188,7 @@ useEffect(() => {
 }, [location.search]);
 
   return (
-    <div className="p-6 bg-slate-50 min-h-screen max-w-9xl justify-center">
+    <div className="p-6 bg-slate-50 min-h-screen">
       <h1 className="text-2xl font-bold text-slate-800 mb-4">Quotes Management</h1>
 
       {/* Toolbar */}
@@ -248,94 +248,86 @@ useEffect(() => {
       </div>
 
       {/* Table View */}
-      {view === "table" && (
-       
-        <div className="overflow-x-hidden flex justify-center bg-white rounded-xl shadow ">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-100 text-slate-700 text-xs uppercase">
-  <tr>
-    <th className="px-4 py-3 text-left">Date</th> {/* New */}
-    <th className="px-4 py-3 text-left">Customer</th>
-    <th className="px-4 py-3 text-left">Brand</th> {/* New */}
-    <th className="px-4 py-3 text-left">Molecule</th>
-    <th className="px-4 py-3 text-left">Quantity</th>
-    <th className="px-4 py-3 text-left">Rate</th>
-    <th className="px-4 py-3 text-left">Payment</th>
-    <th className="px-4 py-3 text-left">Status</th>
-    <th className="px-4 py-3 text-left">Chat</th>
-    <th className="px-4 py-3 text-left">Actions</th>
-    <th className="px-4 py-3 text-left">Tracking</th>
-  </tr>
-</thead>
-           <tbody>
-{paginatedQuotes.map((q) => (
-    <tr key={q._id} className="last:border-none hover:bg-slate-50 transition">
-      <td className="px-4 py-3">{new Date(q.createdAt).toLocaleDateString()}</td> {/* Date */}
-      <td className="px-4 py-3">{q.customerId?.name || "Customer"}</td>
-      <td className="px-4 py-3">{q.brandName || "-"}</td> {/* Brand Name */}
-      <td className="px-4 py-3">{q.moleculeName || `Custom: ${q.customMolecule}`}</td>
-      <td className="px-4 py-3">{q.quantity} {q.unit}</td>
-      <td className="px-4 py-3">{q.estimatedRate ? `₹${q.estimatedRate}` : "-"}</td>
-      <td className="px-4 py-3">{q.requestedAmount ? `₹${q.requestedAmount}` : "-"}</td>
-      <td className="px-4 py-3"><StatusBadge status={q.status} /></td>
-      
-      <td className="px-4 py-3">
-  <button
-    onClick={() =>
-      setChatInfo({
-        show: true,
-        quoteId: q._id,
-        customerId: q.customerId?._id,
-      })
-    }
-    className="flex items-center gap-1 px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs"
-    title="Chat with Customer"
-  >
-    <MessageSquare className="w-4 h-4" />
-    Chat
-  </button>
-</td>
-
-      <td className="px-4 py-3 ">
-        <select
-          value=""
-          onChange={(e) => handleActionClick(e.target.value, q)}
-          className="border px-2 py-1 rounded text-xs"
-        >
-          <option value="">Select Action</option>
-          {getActions(q.status).map((a) => (
-            <option key={a} value={a}>
-              {a === "approve" && "Approve"}
-              {a === "reject" && "Reject"}
-              {a === "payment" && "Request Payment"}
-              {a === "paid" && "Mark Paid"}
-            </option>
-          ))}
-        </select>
-      </td>
-     <td className="px-4 py-3">
-  <select
-    value={q.trackingStep}
-    onChange={(e) => performAction("tracking", q._id, Number(e.target.value))}
-    className="border px-2 py-1 rounded text-xs w-full"
-  >
-    {q.trackingSteps.map((step, index) => (
-      <option key={index} value={index}>{step}</option>
-    ))}
-  </select>
-</td>
-
-
-
-
-
-    </tr>
-  ))}
-</tbody>
-          </table>
-        </div>
-    
-      )}
+{/* Table View */}
+{view === "table" && (
+  <div className="overflow-x-auto bg-white rounded-xl shadow max-w-full">
+    <table className="w-full text-sm">
+      <thead className="bg-slate-100 text-slate-700 text-xs uppercase">
+        <tr>
+          <th className="px-3 py-2 text-left w-20">Date</th>
+          <th className="px-3 py-2 text-left w-32">Customer</th>
+          <th className="px-3 py-2 text-left w-24">Brand</th>
+          <th className="px-3 py-2 text-left w-36">Molecule</th>
+          <th className="px-3 py-2 text-left w-20">Quantity</th>
+          <th className="px-3 py-2 text-left w-20">Rate</th>
+          <th className="px-3 py-2 text-left w-24">Payment</th>
+          <th className="px-3 py-2 text-left w-28">Status</th>
+          <th className="px-3 py-2 text-left w-16">Chat</th>
+          <th className="px-3 py-2 text-left w-32">Actions</th>
+          <th className="px-3 py-2 text-left w-36">Tracking</th>
+        </tr>
+      </thead>
+      <tbody>
+        {paginatedQuotes.map((q) => (
+          <tr key={q._id} className="last:border-none hover:bg-slate-50 transition">
+            <td className="px-3 py-2 text-xs">{new Date(q.createdAt).toLocaleDateString()}</td>
+            <td className="px-3 py-2 truncate max-w-[120px]" title={q.customerId?.name}>
+              {q.customerId?.name || "Customer"}
+            </td>
+            <td className="px-3 py-2 truncate max-w-[100px]" title={q.brandName}>
+              {q.brandName || "-"}
+            </td>
+            <td className="px-3 py-2 truncate max-w-[140px]" title={q.moleculeName || q.customMolecule}>
+              {q.moleculeName || `Custom: ${q.customMolecule}`}
+            </td>
+            <td className="px-3 py-2">{q.quantity} {q.unit}</td>
+            <td className="px-3 py-2">{q.estimatedRate ? `₹${q.estimatedRate}` : "-"}</td>
+            <td className="px-3 py-2">{q.requestedAmount ? `₹${q.requestedAmount}` : "-"}</td>
+            <td className="px-3 py-2"><StatusBadge status={q.status} /></td>
+            <td className="px-3 py-2">
+              <button
+                onClick={() => setChatInfo({ show: true, quoteId: q._id, customerId: q.customerId?._id })}
+                className="flex items-center gap-1 px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs"
+                title="Chat with Customer"
+              >
+                <MessageSquare className="w-3 h-3" />
+                Chat
+              </button>
+            </td>
+            <td className="px-3 py-2">
+              <select
+                value=""
+                onChange={(e) => handleActionClick(e.target.value, q)}
+                className="border px-2 py-1 rounded text-xs w-full"
+              >
+                <option value="">Action</option>
+                {getActions(q.status).map((a) => (
+                  <option key={a} value={a}>
+                    {a === "approve" && "Approve"}
+                    {a === "reject" && "Reject"}
+                    {a === "payment" && "Request Payment"}
+                    {a === "paid" && "Mark Paid"}
+                  </option>
+                ))}
+              </select>
+            </td>
+            <td className="px-3 py-2">
+              <select
+                value={q.trackingStep}
+                onChange={(e) => performAction("tracking", q._id, Number(e.target.value))}
+                className="border px-2 py-1 rounded text-xs w-full"
+              >
+                {q.trackingSteps.map((step, index) => (
+                  <option key={index} value={index}>{step}</option>
+                ))}
+              </select>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+)}
 
       {/* Card View */}
  {/* Card View */}
