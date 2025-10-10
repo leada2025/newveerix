@@ -249,8 +249,8 @@ useEffect(() => {
 
       {/* Table View */}
       {view === "table" && (
-        <div className="item-center">
-        <div className="overflow-x-hidden max-w-[70vw] bg-white rounded-xl shadow ">
+       
+        <div className="overflow-x-hidden bg-white rounded-xl shadow ">
           <table className="w-full text-sm">
             <thead className="bg-slate-100 text-slate-700 text-xs uppercase">
   <tr>
@@ -334,7 +334,7 @@ useEffect(() => {
 </tbody>
           </table>
         </div>
-        </div>
+    
       )}
 
       {/* Card View */}
