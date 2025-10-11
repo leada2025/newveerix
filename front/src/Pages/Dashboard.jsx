@@ -25,6 +25,24 @@ import {
 import Slider from "react-slick";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
+const getStatusLabel = (status) => {
+  switch (status) {
+    case "Pending":
+      return "Quote Initiated";
+    case "Paid":
+      return "Completed";
+    case "Rejected":
+      return "Rejected";
+    case "Quote Sent":
+      return "Quote Sent";
+    case "Payment Requested":
+      return "Payment Requested";
+    case "Approved Quote":
+      return "Approved Quote";
+    default:
+      return status || "Unknown";
+  }
+};
 
 // ---------------- MAIN ----------------
 export default function Dashboard() {
@@ -62,24 +80,26 @@ const navigate = useNavigate();
       paymentRequested: quotes.filter((q) => q.status === "Payment Requested")
         .length,
       paid: quotes.filter((q) => q.status === "Paid").length,
+        rejected: quotes.filter((q) => q.status === "Rejected").length, 
     };
   }, [quotes]);
 
   // chart data
-  const chartData = useMemo(() => {
-    const statuses = [
-      "Pending",
-      "Quote Sent",
-      "Approved Quote",
-      "Payment Requested",
-      "Paid",
-      "Rejected",
-    ];
-    return statuses.map((status) => ({
-      name: status,
-      value: quotes.filter((q) => q.status === status).length,
-    }));
-  }, [quotes]);
+ const chartData = useMemo(() => {
+  const statuses = [
+    "Pending",
+    "Quote Sent",
+    "Approved Quote",
+    "Payment Requested",
+    "Paid",
+    "Rejected",
+  ];
+  return statuses.map((status) => ({
+    name: getStatusLabel(status),
+    value: quotes.filter((q) => q.status === status).length,
+  }));
+}, [quotes]);
+
 
   const COLORS = [
     "#3b82f6",
@@ -140,17 +160,17 @@ const navigate = useNavigate();
 function MetricsGrid({ metrics, onMetricClick }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-      <MetricCard
+      {/* <MetricCard
         color="from-blue-500 to-blue-600"
         icon={<FileText className="w-6 h-6 text-white" />}
         label="Total Quotes"
         value={metrics.total}
         onClick={() => onMetricClick("All")}
-      />
+      /> */}
       <MetricCard
         color="from-amber-500 to-amber-600"
         icon={<Clock className="w-6 h-6 text-white" />}
-        label="Pending"
+        label="Quote Initiated"
         value={metrics.pending}
         onClick={() => onMetricClick("Pending")}
       />
@@ -171,11 +191,19 @@ function MetricsGrid({ metrics, onMetricClick }) {
       <MetricCard
         color="from-green-500 to-green-600"
         icon={<DollarSign className="w-6 h-6 text-white" />}
-        label="Paid"
+        label="Completed"
         value={metrics.paid}
         onClick={() => onMetricClick("Paid")}
       />
+      <MetricCard
+        color="from-red-500 to-red-600"
+        icon={<FileText className="w-6 h-6 text-white" />}
+        label="Rejected"
+        value={metrics.rejected}
+        onClick={() => onMetricClick("Rejected")}
+      />
     </div>
+    
   );
 }
 
@@ -246,8 +274,8 @@ function ChartsSection({ chartData, COLORS }) {
 
 // recent orders
 function RecentOrders({ loading, quotes }) {
-  const latestQuotes = useMemo(
-    () => quotes.slice(0, 5),
+   const latestQuotes = useMemo(
+    () => quotes.slice(-5).reverse(),
     [quotes]
   );
 
@@ -296,18 +324,19 @@ function RecentOrders({ loading, quotes }) {
               {/* RIGHT SIDE */}
               <div className="flex flex-col items-end sm:items-center gap-1">
                 <span
-                  className={`px-3 py-1 text-xs font-medium rounded-full ${
-                    q.status === "Paid"
-                      ? "bg-green-100 text-green-700"
-                      : q.status === "Pending"
-                      ? "bg-amber-100 text-amber-700"
-                      : q.status === "Rejected"
-                      ? "bg-red-100 text-red-700"
-                      : "bg-slate-100 text-slate-700"
-                  }`}
-                >
-                  {q.status}
-                </span>
+  className={`px-3 py-1 text-xs font-medium rounded-full ${
+    q.status === "Paid"
+      ? "bg-green-100 text-green-700"
+      : q.status === "Pending"
+      ? "bg-amber-100 text-amber-700"
+      : q.status === "Rejected"
+      ? "bg-red-100 text-red-700"
+      : "bg-slate-100 text-slate-700"
+  }`}
+>
+  {getStatusLabel(q.status)}
+</span>
+
                 <TrackingSteps
                   steps={q.trackingSteps || ["Created", "Processing", "Done"]}
                   currentStep={q.trackingStep || 0}

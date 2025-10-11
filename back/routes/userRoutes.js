@@ -11,21 +11,27 @@ const authorize = require("../middleware/authorize");
 // routes/userRoutes.js
 router.post("/signup", async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, city, companyName, GSTno } = req.body;
 
     const exists = await User.findOne({ email });
     if (exists) return res.status(400).json({ message: "User already exists" });
 
     let roleId = role;
-
-    // If role is string like "customer", convert to ObjectId
     if (typeof role === "string") {
       const roleDoc = await Role.findOne({ name: role });
       if (!roleDoc) return res.status(400).json({ message: "Invalid role" });
       roleId = roleDoc._id;
     }
 
-    const user = await User.create({ name, email, password, role: roleId });
+    const user = await User.create({
+      name,
+      email,
+      password,
+      role: roleId,
+      city,
+      companyName,
+      GSTno,
+    });
 
     res.json({
       token: generateToken(user._id),
@@ -33,8 +39,11 @@ router.post("/signup", async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        role: role, // return role name, not ObjectId
-      }
+        role,
+        city: user.city,
+        companyName: user.companyName,
+        GSTno: user.GSTno,
+      },
     });
   } catch (err) {
     console.error(err);
@@ -74,18 +83,42 @@ router.post("/login", async (req, res) => {
 });
 
 
+router.get("/profile", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "User not found" });
 
+    res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      city: user.city,
+      companyName: user.companyName,
+      GSTno: user.GSTno,
+      role: user.role,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// @desc    Update user profile
+// @route   PUT /api/users/profile
 // @desc    Update user profile
 // @route   PUT /api/users/profile
 router.put("/profile", async (req, res) => {
   try {
-    const { id, name, email, password } = req.body;
+    const { id, name, email, password, city, companyName, GSTno } = req.body;
 
     const user = await User.findById(id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
     user.name = name || user.name;
     user.email = email || user.email;
+    user.city = city || user.city;          // <-- added
+    user.companyName = companyName || user.companyName; // <-- added
+    user.GSTno = GSTno || user.GSTno;       // <-- added
 
     if (password) {
       user.password = password; // hashed automatically by pre-save hook
@@ -98,6 +131,9 @@ router.put("/profile", async (req, res) => {
       name: updatedUser.name,
       email: updatedUser.email,
       role: updatedUser.role,
+      city: updatedUser.city,
+      companyName: updatedUser.companyName,
+      GSTno: updatedUser.GSTno,
     });
   } catch (err) {
     console.error(err);
@@ -107,11 +143,8 @@ router.put("/profile", async (req, res) => {
 
 router.post("/add-employee", auth, async (req, res) => {
   try {
-  
+    const { name, email, password, role, city, companyName, GSTno } = req.body;
 
-    const { name, email, password, role } = req.body;
-
-    // prevent adding customer via admin panel
     const roleDoc = await Role.findById(role);
     if (!roleDoc || roleDoc.name === "customer") {
       return res.status(400).json({ message: "Invalid role selection" });
@@ -120,12 +153,24 @@ router.post("/add-employee", auth, async (req, res) => {
     const exists = await User.findOne({ email });
     if (exists) return res.status(400).json({ message: "User already exists" });
 
-    const user = await User.create({ name, email, password, role });
+    const user = await User.create({
+      name,
+      email,
+      password,
+      role,
+      city,
+      companyName,
+      GSTno,
+    });
+
     res.json({
       _id: user._id,
       name: user.name,
       email: user.email,
-      role: roleDoc.name, // return readable role name
+      role: roleDoc.name,
+      city: user.city,
+      companyName: user.companyName,
+      GSTno: user.GSTno,
     });
   } catch (err) {
     console.error(err);
@@ -218,7 +263,18 @@ router.get("/customers", auth, authorize(["manage_users"]), async (req, res) => 
       .populate("role", "name")
       .lean();
 
-    const filtered = customers.filter((u) => u.role?.name === "customer");
+    const filtered = customers
+      .filter((u) => u.role?.name === "customer")
+      .map((u) => ({
+        _id: u._id,
+        name: u.name,
+        email: u.email,
+        city: u.city,
+        companyName: u.companyName,
+        GSTno: u.GSTno,
+        active: u.active,
+      }));
+
     res.json(filtered);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -226,12 +282,13 @@ router.get("/customers", auth, authorize(["manage_users"]), async (req, res) => 
 });
 
 
+
 // ===============================
 // ✅ Update Customer (admin only)
 // ===============================
 router.put("/customers/:id", auth, authorize(["manage_users"]), async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, city, companyName, GSTno } = req.body;
 
     const user = await User.findById(req.params.id).populate("role", "name");
     if (!user) return res.status(404).json({ message: "Customer not found" });
@@ -240,10 +297,12 @@ router.put("/customers/:id", auth, authorize(["manage_users"]), async (req, res)
       return res.status(400).json({ message: "This user is not a customer" });
     }
 
-    // update fields
     user.name = name || user.name;
     user.email = email || user.email;
-    if (password) user.password = password; // pre-save hook will hash
+    user.city = city || user.city;
+    user.companyName = companyName || user.companyName;
+    user.GSTno = GSTno || user.GSTno;
+    if (password) user.password = password;
 
     await user.save();
 
@@ -254,6 +313,9 @@ router.put("/customers/:id", auth, authorize(["manage_users"]), async (req, res)
         name: user.name,
         email: user.email,
         role: "customer",
+        city: user.city,
+        companyName: user.companyName,
+        GSTno: user.GSTno,
       },
     });
   } catch (err) {
@@ -261,6 +323,7 @@ router.put("/customers/:id", auth, authorize(["manage_users"]), async (req, res)
     res.status(500).json({ message: "Server error" });
   }
 });
+
 // Toggle Active/Inactive for a customer
 router.patch(
   "/customers/:id",

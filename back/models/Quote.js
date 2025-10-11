@@ -55,7 +55,7 @@ const QuoteSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
+QuoteSchema.index({ customerId: 1, brandName: 1 }, { unique: true });
 // 🔹 Whenever trackingStep is updated, push to trackingHistory
 QuoteSchema.pre("save", function (next) {
   if (this.isModified("trackingStep")) {

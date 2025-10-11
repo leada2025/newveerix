@@ -40,7 +40,7 @@ const [currentPage, setCurrentPage] = useState(1);
 const [rowsPerPage, setRowsPerPage] = useState(10);
 const [chatInfo, setChatInfo] = useState({ show: false, quoteId: null, customerId: null });
 const location = useLocation();
-  // ---- Fetch Quotes ----
+ const [paymentModalData, setPaymentModalData] = useState(null); // ---- Fetch Quotes ----
 const fetchQuotes = async () => {
   try {
     const res = await axios.get("/api/quotes", {
@@ -81,7 +81,7 @@ const fetchQuotes = async () => {
   }, [quotes, searchTerm, filterStatus, sortOption]);
 
   // ---- Actions ----
- const performAction = async (action, id, value) => {
+ const performAction = async (action, id, value, extra = {}) => {
   try {
     setLoading(true);
     let url = "";
@@ -92,7 +92,10 @@ const fetchQuotes = async () => {
       body = { estimatedRate: Number(value) };
     } else if (action === "payment") {
       url = `/api/quotes/${id}/payment`;
-      body = { amount: Number(value) };
+      body = {
+        amount: Number(value),
+        percentage: extra.percentage || 50, // ✅ include selected percentage
+      };
     } else if (action === "paid") {
       url = `/api/quotes/${id}/paid`;
     } else if (action === "reject") {
@@ -103,11 +106,11 @@ const fetchQuotes = async () => {
     }
 
     const res = await axios.patch(url, body, {
-      headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` }
+      headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` },
     });
 
     setModalData(null);
-    setQuotes(prev => prev.map(q => q._id === id ? res.data : q));
+    setQuotes((prev) => prev.map((q) => (q._id === id ? res.data : q)));
   } catch (err) {
     console.error("Action failed:", err);
     alert(err.response?.data?.message || "Action failed");
@@ -142,35 +145,39 @@ useEffect(() => {
   return () => socket.off("quote_updated", handleQuoteUpdate);
 }, []);
 
-  const getActions = (status) => {
-    switch (status) {
-      case "Pending":
-        return ["approve", "reject"];
-      case "Approved Quote":
-        return ["payment"];
-      case "Payment Requested":
-        return ["paid"];
-      default:
-        return [];
-    }
-  };
+const getActions = (status) => {
+  switch (status) {
+    case "Pending":
+      return ["approve", "reject"];
+    case "Quote Sent":
+      return ["approve", "reject"];  // <-- now editable
+    case "Approved Quote":
+      return ["payment"];
+    case "Payment Requested":
+      return ["paid"];
+    default:
+      return [];
+  }
+};
+
 
 const handleActionClick = (action, quote) => {
   if (action === "approve") {
-    // Approve needs rate input
-    setModalData({ action, quote, value: "" });
+    // Pre-fill modal with current quote data
+    setModalData({ action, quote, value: quote.estimatedRate || "" });
+    setInputValue(quote.estimatedRate || "");
   } else if (action === "payment") {
-    // Request Payment should auto-use estimatedRate
     if (!quote.estimatedRate) {
       alert("Estimated rate is missing. Approve the quote first.");
       return;
     }
-    performAction("payment", quote._id, quote.estimatedRate);
+    setPaymentModalData({ quote, percentage: 50 }); // default 50%
   } else {
-    // Reject / Paid → direct
     performAction(action, quote._id);
   }
 };
+
+
 const paginatedQuotes = useMemo(() => {
   const start = (currentPage - 1) * rowsPerPage;
   const end = start + rowsPerPage;
@@ -485,6 +492,54 @@ useEffect(() => {
   onClose={() => setChatInfo({ show: false, quoteId: null, customerId: null })}
    isAdmin={true}
 />
+{paymentModalData && (
+  <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-50">
+    <div className="bg-white rounded-xl shadow-lg w-96">
+      <div className="px-6 py-4 border-b">
+        <h2 className="text-lg font-semibold">Request Payment</h2>
+      </div>
+      <div className="px-6 py-4 flex flex-col gap-3">
+        <p>Select the payment percentage:</p>
+        <div className="flex gap-3">
+          {[30, 50, 70].map((p) => (
+            <button
+              key={p}
+              onClick={() => setPaymentModalData(prev => ({ ...prev, percentage: p }))}
+              className={`px-4 py-2 rounded-lg border ${
+                paymentModalData.percentage === p ? 'bg-blue-600 text-white' : 'bg-slate-100'
+              }`}
+            >
+              {p}%
+            </button>
+          ))}
+        </div>
+        <p className="text-sm text-slate-500 mt-2">
+          Requested Amount: ₹ {Math.round(paymentModalData.quote.estimatedRate * paymentModalData.percentage / 100)}
+        </p>
+      </div>
+      <div className="px-6 py-3 flex justify-end gap-2 border-t">
+        <button
+          onClick={() => setPaymentModalData(null)}
+          className="px-3 py-1 bg-slate-100 rounded-lg text-sm"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={() => {
+            const amount = Math.round(paymentModalData.quote.estimatedRate * paymentModalData.percentage / 100);
+           performAction("payment", paymentModalData.quote._id, amount, {
+  percentage: paymentModalData.percentage,
+});
+            setPaymentModalData(null);
+          }}
+          className="px-3 py-1 rounded-lg text-sm bg-blue-600 text-white"
+        >
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
     </div>
   );

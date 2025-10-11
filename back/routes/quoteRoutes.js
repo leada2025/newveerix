@@ -37,29 +37,60 @@ const emitQuoteUpdate = async(quote, change = {}) => {
 router.post('/quotes', async (req, res) => {
   try {
     const { customerId, brandName, moleculeName, customMolecule, quantity, unit } = req.body;
+
+    // Count quotes that are NOT Paid or Rejected
+    const activeCount = await Quote.countDocuments({
+      customerId,
+      status: { $nin: ['Paid', 'Rejected'] } // only active quotes
+    });
+
+    if (activeCount >= 5) {
+      return res.status(400).json({ message: "You can submit a maximum of 5 active quotes." });
+    }
+
     const quote = new Quote({ customerId, brandName, moleculeName, customMolecule, quantity, unit });
     await quote.save();
+
     const populatedQuote = await quote.populate('customerId', 'name');
     emitQuoteUpdate(populatedQuote);
     res.json(populatedQuote);
+
   } catch (err) {
+    if (err.code === 11000) {
+      return res.status(400).json({ message: "You have already submitted a quote for this brand name." });
+    }
     res.status(500).json({ message: err.message });
   }
 });
 
+
+
+
 // ---------- Approve quote (Admin) ----------
-router.patch('/quotes/:id/approve',auth, authorize(["manage_quotes"]), async (req, res) => {
+// ---------- Approve / Send Quote (Admin) ----------
+router.patch('/quotes/:id/approve', auth, authorize(["manage_quotes"]), async (req, res) => {
   try {
     const quote = await Quote.findById(req.params.id).populate('customerId', 'name');
     if (!quote) return res.status(404).json({ message: "Quote not found" });
-    if (quote.status !== 'Pending') return res.status(400).json({ message: "Cannot approve in current status" });
+
+    // ✅ Allow re-send even if already sent
+    if (!['Pending', 'Quote Sent'].includes(quote.status)) {
+      return res.status(400).json({ message: "Cannot approve in current status" });
+    }
 
     quote.status = 'Quote Sent';
     quote.estimatedRate = req.body.estimatedRate || quote.estimatedRate;
+    quote.quantity = req.body.quantity || quote.quantity;      // optional
+    quote.unit = req.body.unit || quote.unit;                  // optional
+    quote.brandName = req.body.brandName || quote.brandName;   // optional
+    quote.moleculeName = req.body.moleculeName || quote.moleculeName;
+    quote.customMolecule = req.body.customMolecule || quote.customMolecule;
+
     await quote.save();
 
     const populatedQuote = await quote.populate('customerId', 'name');
-    emitQuoteUpdate(populatedQuote);
+    emitQuoteUpdate(populatedQuote, { message: "Admin updated and sent quote" });
+
     res.json(populatedQuote);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -85,46 +116,81 @@ router.patch('/quotes/:id/approve-customer', async (req, res) => {
 });
 
 // ---------- Request Payment (Admin) ----------
-router.patch('/quotes/:id/payment',auth, authorize(["manage_quotes"]), async (req, res) => {
+// ---------- Request Payment (Admin) ----------
+router.patch('/quotes/:id/payment', auth, authorize(["manage_quotes"]), async (req, res) => {
   try {
+    const { amount, percentage } = req.body;
     const quote = await Quote.findById(req.params.id).populate('customerId', 'name');
+
     if (!quote) return res.status(404).json({ message: "Quote not found" });
-    if (quote.status !== 'Approved Quote') return res.status(400).json({ message: "Payment can only be requested after approval" });
+    if (quote.status !== 'Approved Quote')
+      return res.status(400).json({ message: "Payment can only be requested after approval" });
 
     quote.status = 'Payment Requested';
-    quote.requestedAmount = req.body.amount || quote.estimatedRate;
+    quote.requestedAmount = amount || quote.estimatedRate;
+
+    // ✅ Dynamically calculate percentage if not provided
+    if (percentage) {
+      quote.requestedPercentage = percentage;
+    } else {
+      quote.requestedPercentage = Math.round((quote.requestedAmount / quote.estimatedRate) * 100);
+    }
+
     await quote.save();
 
     const populatedQuote = await quote.populate('customerId', 'name');
-    emitQuoteUpdate(populatedQuote);
+    emitQuoteUpdate(populatedQuote, {
+      message: `Admin requested ${quote.requestedPercentage}% advance payment (₹${quote.requestedAmount})`,
+    });
+
     res.json(populatedQuote);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
+
+
 
 // ---------- Submit Customer Payment ----------
-router.patch('/quotes/:id/customer-payment', async (req, res) => {
-  try {
-    const quote = await Quote.findById(req.params.id).populate('customerId', 'name');
-    if (!quote) return res.status(404).json({ message: "Quote not found" });
-    if (quote.status !== 'Payment Requested') return res.status(400).json({ message: "Payment can only be submitted after request" });
+router.patch(
+  "/quotes/:id/customer-payment",
+  auth, // 🔒 auth middleware required
+  async (req, res) => {
+    try {
+      const quote = await Quote.findById(req.params.id).populate(
+        "customerId",
+        "name"
+      );
+      if (!quote)
+        return res.status(404).json({ message: "Quote not found" });
 
-    quote.customerPaymentInfo = {
-      method: req.body.method || "UPI",
-      transactionId: req.body.transactionId,
-      screenshotUrl: req.body.screenshotUrl || null,
-      submittedAt: new Date()
-    };
-    await quote.save();
+      if (quote.status !== "Payment Requested")
+        return res
+          .status(400)
+          .json({ message: "Payment can only be submitted after request" });
 
-    const populatedQuote = await quote.populate('customerId', 'name');
-    emitQuoteUpdate(populatedQuote);
-    res.json(populatedQuote);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+      // Save customer payment info
+      quote.customerPaymentInfo = {
+        method: req.body?.method || "UPI",
+        transactionId: req.body?.transactionId || "Unknown",
+        screenshotUrl: req.body?.screenshotUrl || null,
+        submittedAt: new Date(),
+      };
+
+      await quote.save();
+
+      const populatedQuote = await quote.populate("customerId", "name");
+
+      // Emit update to socket or notifications
+      emitQuoteUpdate(populatedQuote);
+
+      res.json(populatedQuote);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: err.message });
+    }
   }
-});
+);
 
 // ---------- Mark Paid (Admin) ----------
 router.patch('/quotes/:id/paid',auth, authorize(["manage_quotes"]), async (req, res) => {

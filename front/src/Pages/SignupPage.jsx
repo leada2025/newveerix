@@ -5,9 +5,16 @@ import veerixLogo from "../assets/v_logo.png";
 
 const SignupPage = () => {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    city: "",
+    companyName: "",
+    GSTno: "",
+  });
   const [error, setError] = useState("");
-  const [showPassword, setShowPassword] = useState(false); // 👁️ toggle state
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -25,9 +32,8 @@ const SignupPage = () => {
       localStorage.setItem("authToken", token);
       localStorage.setItem("user", JSON.stringify(user));
 
-     
-    alert("🎉 Signup successful! Please log in to continue.");
-    navigate("/login"); // after signup, go to dashboard
+      alert("🎉 Signup successful! Please log in to continue.");
+      navigate("/login");
     } catch (err) {
       console.error(err);
       setError(err.response?.data?.message || "Signup failed");
@@ -40,6 +46,7 @@ const SignupPage = () => {
         <div className="flex justify-center">
           <img src={veerixLogo} alt="Veerix Logo" className="h-16" />
         </div>
+
         <h2 className="text-2xl font-bold text-center text-[#d1383a]">
           Create Account
         </h2>
@@ -47,10 +54,9 @@ const SignupPage = () => {
         {error && <p className="text-red-500 text-sm text-center">{error}</p>}
 
         <form className="space-y-4" onSubmit={handleSignup}>
+          {/* Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Name
-            </label>
+            <label className="block text-sm font-medium text-gray-700">Name</label>
             <input
               type="text"
               name="name"
@@ -60,10 +66,10 @@ const SignupPage = () => {
               className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
             />
           </div>
+
+          {/* Email */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Email
-            </label>
+            <label className="block text-sm font-medium text-gray-700">Email</label>
             <input
               type="email"
               name="email"
@@ -73,20 +79,60 @@ const SignupPage = () => {
               className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
             />
           </div>
+
+          {/* City */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">City</label>
+            <input
+              type="text"
+              name="city"
+              value={form.city}
+              onChange={handleChange}
+              placeholder="Enter your city"
+              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+            />
+          </div>
+
+          {/* Company Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Password
+              Company Name
             </label>
+            <input
+              type="text"
+              name="companyName"
+              value={form.companyName}
+              onChange={handleChange}
+              placeholder="Enter your company name"
+              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+            />
+          </div>
+
+          {/* GST No */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">GST Number</label>
+            <input
+              type="text"
+              name="GSTno"
+              value={form.GSTno}
+              onChange={handleChange}
+              placeholder="Enter GST number"
+              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+            />
+          </div>
+
+          {/* Password */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Password</label>
             <div className="relative">
               <input
-                type={showPassword ? "text" : "password"} // toggle
+                type={showPassword ? "text" : "password"}
                 name="password"
                 required
                 value={form.password}
                 onChange={handleChange}
                 className="mt-1 w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
               />
-              {/* 👁️ Toggle button */}
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
@@ -96,6 +142,8 @@ const SignupPage = () => {
               </button>
             </div>
           </div>
+
+          {/* Submit */}
           <button
             type="submit"
             className="w-full py-2 rounded-md font-semibold bg-[#d1383a] text-white hover:bg-[#b52f30] transition"

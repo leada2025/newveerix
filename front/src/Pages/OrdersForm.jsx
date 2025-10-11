@@ -34,6 +34,7 @@ export default function NewOrderModal({ open, onClose, customerId, quoteData,onC
   const [quote, setQuote] = useState(null);
 const [showConfirm, setShowConfirm] = useState(false);
 const [showChat, setShowChat] = useState(false);
+const [quoteLimitReached, setQuoteLimitReached] = useState(false);
   // ---- Map quote status to step
   const statusOrder = ['Pending', 'Quote Sent', 'Approved Quote', 'Payment Requested', 'Paid'];
 const getStepFromStatus = (status) => {
@@ -111,26 +112,39 @@ const next = () => {
 
 
 
-  // ---- Submit quote
-  const submitQuote = async () => {
-    try {
-      const payload = {
-        customerId: customerId || JSON.parse(localStorage.getItem('user'))?._id,
-        moleculeName: form.molecule,
-        customMolecule: form.customMolecule,
-        quantity: form.qty,
-        unit: form.unit,
-        brandName: form.brand,
-      };
-      const res = await axios.post('/api/quotes', payload);
-       onCreate(res.data);
-      setQuote(res.data);
-      setStep(2);
-      setSubmitted(true);
-    } catch (err) {
-      console.error('Failed to submit quote:', err);
+const submitQuote = async () => {
+  try {
+    const user = JSON.parse(localStorage.getItem('user'));
+    const existingRes = await axios.get(`/api/quotes/customer/${user._id}`);
+    const existingBrandNames = existingRes.data.map(q => q.brandName.toLowerCase());
+
+    if (existingBrandNames.includes(form.brand.toLowerCase())) {
+      alert("You have already submitted a quote for this brand name.");
+      return;
     }
-  };
+
+    // Submit the new quote
+    const payload = {
+      customerId: user._id,
+      moleculeName: form.molecule,
+      customMolecule: form.customMolecule,
+      quantity: form.qty,
+      unit: form.unit,
+      brandName: form.brand,
+    };
+
+    const res = await axios.post('/api/quotes', payload);
+    onCreate(res.data);
+    setQuote(res.data);
+    setStep(2);
+    setSubmitted(true);
+
+  } catch (err) {
+    console.error('Failed to submit quote:', err);
+    if (err.response?.data?.message) alert(err.response.data.message);
+  }
+};
+
 
   // ---- Accept quote
   const acceptQuote = async () => {
@@ -183,6 +197,45 @@ useEffect(() => {
     socket.disconnect(); // 👈 ensure proper cleanup when modal closes
   };
 }, [open]);
+useEffect(() => {
+  if (!open) return;
+
+  if (quoteData) {
+    // Existing quote: show current step & form
+    setQuote(quoteData);
+    setForm({
+      brand: quoteData.brandName || '',
+      molecule: quoteData.moleculeName || '',
+      customMolecule: quoteData.customMolecule || '',
+      qty: quoteData.quantity || '',
+      unit: quoteData.unit || 'boxes',
+    });
+    setStep(getStepFromStatus(quoteData.status)); // ✅ current step
+  } else {
+    // New quote: empty form, step 1
+    setQuote(null);
+    setForm({ brand: '', molecule: '', customMolecule: '', qty: '', unit: 'boxes' });
+    setStep(1); // start at step 1
+  }
+
+  setSubmitted(false);
+  setShowConfirm(false);
+}, [open, quoteData]);
+
+
+useEffect(() => {
+  if (!open) return;
+
+  const user = JSON.parse(localStorage.getItem('user'));
+  axios.get(`/api/quotes/customer/${user._id}`)
+    .then(res => {
+      // Count only active quotes
+      const activeQuotes = res.data.filter(q => !['Paid', 'Rejected'].includes(q.status));
+      setQuoteLimitReached(activeQuotes.length >= 5);
+    })
+    .catch(err => console.error(err));
+}, [open]);
+
 
 if (!open) return null;
 
@@ -286,7 +339,7 @@ if (!open) return null;
     <div className="col-span-2 flex justify-end mt-3">
       <button
         onClick={submitQuote}
-        disabled={isSubmitDisabled}
+        disabled={isSubmitDisabled  || quoteLimitReached}
         className="px-4 py-2 rounded-lg bg-emerald-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
       >
         Submit Request
@@ -294,7 +347,11 @@ if (!open) return null;
     </div>
   </div>
 )}
-
+{quoteLimitReached && (
+  <p className="text-red-500 text-sm mt-2">
+    You have reached the maximum of 5 active quotes.
+  </p>
+)}
           {/* Step 2 */}
 {step === 2 && (
   <div>
@@ -303,8 +360,21 @@ if (!open) return null;
     <div className="p-4 bg-white rounded-lg border">
       <p className="text-sm text-slate-600">Estimated Rate:</p>
       <p className="text-xl font-bold text-emerald-600">
-        ₹ {quote?.estimatedRate || 'Waiting for admin…'}
-      </p>
+  {quote?.estimatedRate ? (
+    <>
+      ₹ {quote.estimatedRate}
+      <span className="font-normal text-sm text-slate-700">
+        {" "}
+        for {quote.quantity} {quote.unit || "units"}
+      </span>
+    </>
+  ) : (
+    <span className="font-normal text-slate-600">
+      Please wait, we will send you a quote soon...
+    </span>
+  )}
+</p>
+
     </div>
 
     <div className="mt-4 flex flex-col gap-3">
@@ -318,73 +388,136 @@ if (!open) return null;
           {quote?.status === 'Approved Quote' ? 'Quote Approved' : 'Accept Quote'}
         </button>
 
-        <button onClick={prev} className="px-4 py-2 rounded-lg border">
-          Back
-        </button>
-      </div>
-
-      {/* Request Changes / Chat Button */}
-      <div className="flex items-center gap-2 mt-2">
-        <span className="text-sm font-medium text-slate-700">Request Changes</span>
-        <button
+     <button
           onClick={() =>
     onOpenChat(quote?._id, quote?.customerId?._id)
   }
-          className="flex items-center justify-center w-8 h-8 bg-[#d1383a] text-white rounded-full hover:bg-red-500 transition-colors"
+          className="px-4 py-2 rounded-lg bg-emerald-600 text-white"
           title="Chat with Admin"
         >
-          <MessageSquare className="w-5 h-5" />
+         <span className="text-sm font-medium text-white">Request Changes</span><MessageSquare className="w-5 h-5" />
         </button>
       </div>
+
+   
     </div>
   </div>
 )}
 
           {/* Step 3 */}
-          {step === 3 && (
+        {/* Step 3 */}
+{/* Step 3 - Payment Requested */}
+{/* Step 3 - Payment Requested */}
+{step === 3 && (
   <div>
     <div className="text-sm font-medium mb-2">Payment Requested</div>
+
+    {/* Amount & Percentage */}
     <div className="p-4 bg-white rounded-lg border">
-      <p className="text-sm text-slate-600">Requested Amount:</p>
+      <p className="text-sm text-slate-600 mb-1">Requested Amount:</p>
       <p className="text-xl font-bold text-emerald-600">
-        ₹ {quote?.requestedAmount || 'Waiting for admin…'}
+        ₹ {quote?.requestedAmount || "Waiting for admin…"}
       </p>
+
+      {/* Compute advance percentage dynamically */}
+      {(() => {
+        const advancePercentage =
+          quote?.requestedPercentage ??
+          (quote?.requestedAmount && quote?.estimatedRate
+            ? Math.round((quote.requestedAmount / quote.estimatedRate) * 100)
+            : null);
+
+        return advancePercentage ? (
+          <p className="text-sm text-slate-500 mt-2">
+            {advancePercentage}% advance required now. Remaining{" "}
+            {100 - advancePercentage}% is payable before dispatch.
+          </p>
+        ) : (
+          <p className="text-sm text-slate-500 mt-2">
+            Waiting for admin to select advance percentage.
+          </p>
+        );
+      })()}
     </div>
 
-    {quote?.status === "Payment Requested" && (
+    {/* Payment Action */}
+    {quote?.status === "Payment Requested" ? (
       <div className="mt-4">
         {!form.paymentSubmitted ? (
-          <button
-            onClick={async () => {
-              try {
-                // Call API to mark payment submitted (if needed)
-                await axios.patch(`/api/quotes/${quote._id}/customer-payment`, {
-                  // No transactionId needed
-                });
-                alert("Payment done!");
-                setForm(prev => ({ ...prev, paymentSubmitted: true }));
-              } catch (err) {
-                console.error("Failed to submit payment:", err);
-              }
-            }}
-            className="px-4 py-2 rounded-lg bg-emerald-600 text-white"
-          >
-            Pay Now
-          </button>
+          (() => {
+            const advancePercentage =
+              quote?.requestedPercentage ??
+              (quote?.requestedAmount && quote?.estimatedRate
+                ? Math.round((quote.requestedAmount / quote.estimatedRate) * 100)
+                : null);
+
+            return (
+              <button
+                onClick={async () => {
+                  if (!advancePercentage) return;
+
+                  try {
+                    const token = localStorage.getItem("authToken"); // 🔑 token
+                    await axios.patch(
+                      `/api/quotes/${quote._id}/customer-payment`,
+                      {
+                        method: "UPI",
+                        transactionId: "TXN" + Date.now(),
+                        screenshotUrl: null,
+                      },
+                      { headers: { Authorization: `Bearer ${token}` } }
+                    );
+
+                    alert("Advance payment submitted!");
+                    setForm((prev) => ({ ...prev, paymentSubmitted: true }));
+                  } catch (err) {
+                    console.error("Failed to submit payment:", err?.response?.data || err);
+                    alert(err?.response?.data?.message || "Failed to submit payment. Try again.");
+                  }
+                }}
+                disabled={!advancePercentage}
+                className={`px-4 py-2 rounded-lg ${
+                  advancePercentage
+                    ? "bg-emerald-600 text-white"
+                    : "bg-slate-300 text-slate-500 cursor-not-allowed"
+                }`}
+              >
+                Pay {advancePercentage ?? 50}% Advance
+              </button>
+            );
+          })()
         ) : (
           <div className="p-4 bg-yellow-50 border border-yellow-200 rounded text-yellow-800">
-            Payment is being processed...<br />
-            Once our team verifies, we will give you confirmation.
+            Advance payment is being processed...
+            <br />
+            Once verified, the remaining{" "}
+            {100 -
+              (quote?.requestedPercentage ??
+                (quote?.requestedAmount && quote?.estimatedRate
+                  ? Math.round((quote.requestedAmount / quote.estimatedRate) * 100)
+                  : 50))}{" "}
+            % will be requested before dispatch.
           </div>
         )}
       </div>
+    ) : (
+      <div className="p-4 mt-4 bg-slate-50 border border-slate-200 rounded text-slate-600">
+       Confirmed your advance payment.
+      </div>
     )}
 
-    <div className="text-xs text-slate-500 mt-2">
-      After you submit payment, the admin will verify and mark as <b>Paid</b>.
+    <div className="text-xs text-slate-500 mt-3">
+      After you complete the advance payment, the admin will confirm and request the remaining{" "}
+      {100 -
+        (quote?.requestedPercentage ??
+          (quote?.requestedAmount && quote?.estimatedRate
+            ? Math.round((quote.requestedAmount / quote.estimatedRate) * 100)
+            : 50))}{" "}
+      % before dispatch.
     </div>
   </div>
 )}
+
 
           {/* Step 4 */}
           {step === 4 && (

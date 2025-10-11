@@ -8,8 +8,17 @@ export default function CustomerManagement() {
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
+
+  // ✅ Form fields
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    company: "",
+    city: "",
+    gst: "",
+  });
 
   // ✅ Pagination states
   const [page, setPage] = useState(1);
@@ -40,24 +49,40 @@ export default function CustomerManagement() {
 
   const handleAddOrEdit = async () => {
     try {
+      const payload = {
+        name: form.name,
+        email: form.email,
+        password: form.password,
+        companyName: form.company,
+        city: form.city,
+        GSTno: form.gst,
+        role: "customer",
+      };
+
       if (isEditing && selectedCustomer) {
         await axios.put(
           `/api/users/customers/${selectedCustomer._id}`,
-          { ...form },
+          payload,
           { headers: { Authorization: `Bearer ${token}` } }
         );
       } else {
-        await axios.post(
-          "/api/users/signup",
-          { ...form, role: "customer" },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        await axios.post("/api/users/signup", payload, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
       }
+
       fetchCustomers();
       setOpen(false);
       setIsEditing(false);
       setSelectedCustomer(null);
-      setForm({ name: "", email: "", password: "" });
+      setForm({
+        name: "",
+        email: "",
+        password: "",
+        company: "",
+        city: "",
+        gst: "",
+      });
       setShowPassword(false);
     } catch (err) {
       console.error(err);
@@ -79,11 +104,17 @@ export default function CustomerManagement() {
   const handleEdit = (customer) => {
     setIsEditing(true);
     setSelectedCustomer(customer);
-    setForm({ name: customer.name, email: customer.email, password: "" });
+    setForm({
+      name: customer.name,
+      email: customer.email,
+      password: "",
+      company: customer.companyName || "",
+      city: customer.city || "",
+      gst: customer.GSTno || "",
+    });
     setOpen(true);
   };
 
-  // Active/Deactivate toggle
   const handleToggleActive = async (customer) => {
     try {
       await axios.patch(
@@ -112,7 +143,14 @@ export default function CustomerManagement() {
           onClick={() => {
             setOpen(true);
             setIsEditing(false);
-            setForm({ name: "", email: "", password: "" });
+            setForm({
+              name: "",
+              email: "",
+              password: "",
+              company: "",
+              city: "",
+              gst: "",
+            });
             setShowPassword(false);
           }}
           className="flex items-center bg-[#d1383a] hover:bg-[#a22a2a] text-white px-4 py-2 rounded-lg shadow"
@@ -128,6 +166,9 @@ export default function CustomerManagement() {
             <tr>
               <th className="px-6 py-3 text-left font-medium">Name</th>
               <th className="px-6 py-3 text-left font-medium">Email</th>
+              <th className="px-6 py-3 text-left font-medium">Company</th>
+              <th className="px-6 py-3 text-left font-medium">City</th>
+              <th className="px-6 py-3 text-left font-medium">GST</th>
               <th className="px-6 py-3 text-left font-medium">Status</th>
               <th className="px-6 py-3 text-left font-medium">Created At</th>
               <th className="px-6 py-3 text-right font-medium">Actions</th>
@@ -136,7 +177,7 @@ export default function CustomerManagement() {
           <tbody className="divide-y divide-gray-200">
             {loading ? (
               <tr>
-                <td colSpan="5" className="text-center py-6">
+                <td colSpan="8" className="text-center py-6">
                   Loading...
                 </td>
               </tr>
@@ -145,6 +186,9 @@ export default function CustomerManagement() {
                 <tr key={c._id} className="hover:bg-gray-50">
                   <td className="px-6 py-3">{c.name}</td>
                   <td className="px-6 py-3">{c.email}</td>
+                  <td className="px-6 py-3">{c.companyName || "-"}</td>
+                  <td className="px-6 py-3">{c.city || "-"}</td>
+                  <td className="px-6 py-3">{c.GSTno || "-"}</td>
                   <td className="px-6 py-3">
                     <button
                       onClick={() => handleToggleActive(c)}
@@ -178,7 +222,7 @@ export default function CustomerManagement() {
               ))
             ) : (
               <tr>
-                <td colSpan="5" className="text-center py-6 text-gray-500">
+                <td colSpan="8" className="text-center py-6 text-gray-500">
                   No customers found
                 </td>
               </tr>
@@ -187,7 +231,7 @@ export default function CustomerManagement() {
         </table>
       </div>
 
-      {/* ✅ Pagination controls */}
+      {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex justify-end mt-4 gap-2">
           {Array.from({ length: totalPages }, (_, i) => (
@@ -230,6 +274,30 @@ export default function CustomerManagement() {
                 onChange={handleChange}
                 className="w-full border px-3 py-2 rounded"
               />
+              <input
+                type="text"
+                placeholder="Company"
+                name="company"
+                value={form.company}
+                onChange={handleChange}
+                className="w-full border px-3 py-2 rounded"
+              />
+              <input
+                type="text"
+                placeholder="City"
+                name="city"
+                value={form.city}
+                onChange={handleChange}
+                className="w-full border px-3 py-2 rounded"
+              />
+              <input
+                type="text"
+                placeholder="GST Number"
+                name="gst"
+                value={form.gst}
+                onChange={handleChange}
+                className="w-full border px-3 py-2 rounded"
+              />
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
@@ -248,6 +316,7 @@ export default function CustomerManagement() {
                 </button>
               </div>
             </div>
+
             <div className="mt-6 flex justify-end gap-3">
               <button
                 onClick={() => setOpen(false)}
