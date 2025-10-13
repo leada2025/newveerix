@@ -9,13 +9,15 @@ function Step({ index, label, active, done }) {
     <div className="flex items-center gap-3">
       <div
         className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-medium 
-        ${done ? 'bg-emerald-500 text-white'
-          : active ? 'bg-emerald-100 text-emerald-700'
-          : 'bg-slate-200 text-slate-500'}`}
+        ${done ? 'bg-emerald-500 text-white' 
+               : active ? 'bg-emerald-100 text-emerald-700' 
+               : 'bg-slate-200 text-slate-500'}`}
       >
         {done ? '✔' : index}
       </div>
-      <div className={`text-sm ${active ? 'font-semibold' : 'text-slate-600'}`}>{label}</div>
+      <div className={`text-sm ${active ? 'font-semibold text-emerald-700' : 'text-slate-600'}`}>
+        {label}
+      </div>
     </div>
   );
 }
@@ -37,21 +39,32 @@ const [showChat, setShowChat] = useState(false);
 const [quoteLimitReached, setQuoteLimitReached] = useState(false);
   // ---- Map quote status to step
   const statusOrder = ['Pending', 'Quote Sent', 'Approved Quote', 'Payment Requested', 'Paid'];
-const getStepFromStatus = (status) => {
+const getStepFromStatus = (status, quote) => {
+  // If advance paid, go to final-step (4)
+  if (quote?.advancePaid) return 4;
   switch (status) {
     case 'Pending': return 2;
     case 'Quote Sent': return 2;
-    case 'Approved Quote': return 3;
+    case 'Approved Quote': return 3; // admin approved but not paid (if you keep old mapping)
     case 'Payment Requested': return 3;
+    case 'Advance Paid': return 4;
+    case 'Final Payment Submitted': return 4; 
     case 'Paid': return 4;
+    case 'Final Payment Requested': return 4;
     default: return 1;
   }
 };
 
+
 const isStepDone = (index) => {
   if (!quote) return false;
 
-  // Only mark previous steps as done
+  // ✅ Only show tick (✔) for "Paid" on 4th step
+  if (index === 4) {
+    return quote.status === "Paid";
+  }
+
+  // For earlier steps, done if before current step
   const stepNumber = getStepFromStatus(quote.status);
   return index < stepNumber;
 };
@@ -181,14 +194,16 @@ useEffect(() => {
     socket.emit("joinRoom", `customer_${user._id}`);
   }
 
-  const handleQuoteUpdate = (data) => {
-    const updated = data.quote;
-    setQuote((prev) => {
-      if (!prev || updated._id !== prev._id) return prev;
-      setStep(getStepFromStatus(updated.status));
-      return updated;
-    });
-  };
+const handleQuoteUpdate = (data) => {
+  const updated = data.quote;
+  setQuote((prev) => {
+    if (!prev || updated._id !== prev._id) return prev;
+    const newStep = getStepFromStatus(updated.status, updated);
+    setStep(newStep);
+    return updated;
+  });
+};
+
 
   socket.on("quote_updated", handleQuoteUpdate);
 
@@ -257,15 +272,18 @@ if (!open) return null;
 
         {/* Stepper */}
         <div className="mb-6 grid grid-cols-4 gap-3">
-          {stepStatus.map((s, i) => (
-            <Step
-              key={i}
-              index={i + 1}
-              label={s.label}
-              active={step === i + 1}
-              done={isStepDone(i)}
-            />
-          ))}
+        
+  {stepStatus.map((s, i) => (
+    <Step
+      key={i}
+      index={i + 1}
+      label={s.label}
+      active={step === i + 1}
+      done={isStepDone(i + 1)} // ✅ pass 1-based index
+    />
+  ))}
+
+
         </div>
 
         {/* Step Content */}
@@ -459,7 +477,7 @@ if (!open) return null;
                   try {
                     const token = localStorage.getItem("authToken"); // 🔑 token
                     await axios.patch(
-                      `/api/quotes/${quote._id}/customer-payment`,
+                      `/api/quotes/${quote._id}/customer-advance-payment`,
                       {
                         method: "UPI",
                         transactionId: "TXN" + Date.now(),
@@ -520,19 +538,74 @@ if (!open) return null;
 
 
           {/* Step 4 */}
-          {step === 4 && (
-            <div>
-              <div className="text-sm font-medium mb-2">Payment Confirmed</div>
-              <div className="p-4 bg-white rounded-lg border text-emerald-600 font-bold">
-                Payment Successful!
-              </div>
-              <div className="mt-4 flex gap-2">
-                <button onClick={onClose} className="px-4 py-2 rounded-lg bg-emerald-600 text-white">
-                  Close
-                </button>
-              </div>
-            </div>
-          )}
+ {step === 4 && (
+  <div>
+    <div className="text-sm font-medium mb-2">Payment</div>
+
+    {/* Advance success banner */}
+    <div className="p-4 bg-green-50 rounded border border-green-100 mb-3">
+      <p className="font-medium text-green-700">✅ Advance payment completed.</p>
+      <p className="text-sm text-slate-600">Thank you — your advance has been received.</p>
+    </div>
+
+    {/* Balance card */}
+    <div className="p-4 bg-white rounded border">
+      <div className="flex justify-between items-center mb-2">
+        <div className="text-sm text-slate-700">Remaining Balance</div>
+        <div className="text-lg font-bold text-emerald-600">
+          ₹ {quote?.balanceAmount ?? (quote?.finalAmount ? (quote.finalAmount - (quote.payments?.reduce((s,p)=>s+(p.amount||0),0) || 0)) : '—')}
+        </div>
+      </div>
+
+      {/* If admin requested final payment -> enable pay button */}
+      {quote?.status === 'Final Payment Requested' && !quote?.finalPaid ? (
+        <div className="mt-3 flex gap-3 items-center">
+          <button
+            onClick={async () => {
+              try {
+                const token = localStorage.getItem("authToken");
+                const amount = quote.balanceAmount ?? (quote.finalAmount - (quote.payments?.reduce((s,p)=>s+(p.amount||0),0) || 0));
+                const res = await axios.patch(`/api/quotes/${quote._id}/customer-final-payment`, {
+                  amount,
+                  method: "UPI",
+                  transactionId: "TXN_FINAL_" + Date.now()
+                }, { headers: { Authorization: `Bearer ${token}` } });
+
+                // update local quote
+                setQuote(res.data);
+                alert("Final payment submitted! Awaiting admin verification.");
+              } catch (err) {
+                console.error("Final payment error", err);
+                alert(err?.response?.data?.message || "Final payment failed");
+              }
+            }}
+            className="px-4 py-2 rounded bg-emerald-600 text-white"
+          >
+            Pay Final Amount
+          </button>
+
+          <div className="text-sm text-slate-500">
+            or contact support if you need another payment method.
+          </div>
+        </div>
+      ) : quote?.status === 'Final Payment Submitted' && !quote?.finalPaid ? (
+        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded text-yellow-800">
+          ✅ Payment submitted. We will verify your payment shortly.
+        </div>
+      ) : quote?.status === 'Paid' || quote?.finalPaid ? (
+        <div className="p-3 bg-green-50 rounded text-green-800">
+          ✅ Full payment received. Order complete.
+        </div>
+      ) : (
+        <div className="p-3 bg-yellow-50 rounded text-yellow-800">
+          Waiting for admin to request final payment...
+        </div>
+      )}
+    </div>
+  </div>
+)}
+
+
         </div>
 
         {/* Footer Navigation */}

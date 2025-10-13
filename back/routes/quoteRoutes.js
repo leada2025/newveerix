@@ -68,34 +68,33 @@ router.post('/quotes', async (req, res) => {
 
 // ---------- Approve quote (Admin) ----------
 // ---------- Approve / Send Quote (Admin) ----------
+// Approve / Send Quote (Admin) - allow editing unless finalized
 router.patch('/quotes/:id/approve', auth, authorize(["manage_quotes"]), async (req, res) => {
   try {
     const quote = await Quote.findById(req.params.id).populate('customerId', 'name');
     if (!quote) return res.status(404).json({ message: "Quote not found" });
 
-    // ✅ Allow re-send even if already sent
-    if (!['Pending', 'Quote Sent'].includes(quote.status)) {
-      return res.status(400).json({ message: "Cannot approve in current status" });
+    if (['Paid', 'Rejected'].includes(quote.status)) {
+      return res.status(400).json({ message: "Cannot modify a finalized quote" });
     }
 
     quote.status = 'Quote Sent';
-    quote.estimatedRate = req.body.estimatedRate || quote.estimatedRate;
-    quote.quantity = req.body.quantity || quote.quantity;      // optional
-    quote.unit = req.body.unit || quote.unit;                  // optional
-    quote.brandName = req.body.brandName || quote.brandName;   // optional
-    quote.moleculeName = req.body.moleculeName || quote.moleculeName;
-    quote.customMolecule = req.body.customMolecule || quote.customMolecule;
+    quote.estimatedRate = req.body.estimatedRate ?? quote.estimatedRate;
+    quote.quantity = req.body.quantity ?? quote.quantity;
+    quote.unit = req.body.unit ?? quote.unit;
+    quote.brandName = req.body.brandName ?? quote.brandName;
+    quote.moleculeName = req.body.moleculeName ?? quote.moleculeName;
+    quote.customMolecule = req.body.customMolecule ?? quote.customMolecule;
 
     await quote.save();
-
     const populatedQuote = await quote.populate('customerId', 'name');
     emitQuoteUpdate(populatedQuote, { message: "Admin updated and sent quote" });
-
     res.json(populatedQuote);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
+
 
 // ---------- Customer approves quote ----------
 router.patch('/quotes/:id/approve-customer', async (req, res) => {
@@ -150,50 +149,167 @@ router.patch('/quotes/:id/payment', auth, authorize(["manage_quotes"]), async (r
 });
 
 
+// ---------- Admin Marks Advance Paid ----------
+router.patch('/quotes/:id/advance-paid', auth, authorize(["manage_quotes"]), async (req, res) => {
+  try {
+    const { amount, method, transactionId } = req.body;
+    const quote = await Quote.findById(req.params.id).populate("customerId", "name");
+    if (!quote) return res.status(404).json({ message: "Quote not found" });
 
-// ---------- Submit Customer Payment ----------
-router.patch(
-  "/quotes/:id/customer-payment",
-  auth, // 🔒 auth middleware required
-  async (req, res) => {
-    try {
-      const quote = await Quote.findById(req.params.id).populate(
-        "customerId",
-        "name"
-      );
-      if (!quote)
-        return res.status(404).json({ message: "Quote not found" });
+    if (quote.status !== 'Payment Requested')
+      return res.status(400).json({ message: "Advance payment not requested yet." });
 
-      if (quote.status !== "Payment Requested")
-        return res
-          .status(400)
-          .json({ message: "Payment can only be submitted after request" });
+    const paidAmount = amount ?? quote.requestedAmount ?? 0;
 
-      // Save customer payment info
-      quote.customerPaymentInfo = {
-        method: req.body?.method || "UPI",
-        transactionId: req.body?.transactionId || "Unknown",
-        screenshotUrl: req.body?.screenshotUrl || null,
-        submittedAt: new Date(),
-      };
+    quote.payments.push({
+      method: method || "UPI",
+      transactionId: transactionId || `TXN_ADV_${Date.now()}`,
+      amount: paidAmount,
+      note: "Advance payment (Admin)",
+    });
 
-      await quote.save();
+    quote.advancePaid = true;
+    quote.status = "Advance Paid";
+    quote.balanceAmount = (quote.finalAmount ?? quote.estimatedRate) - paidAmount;
+    quote.trackingStep = Math.max(quote.trackingStep, 3);
 
-      const populatedQuote = await quote.populate("customerId", "name");
-
-      // Emit update to socket or notifications
-      emitQuoteUpdate(populatedQuote);
-
-      res.json(populatedQuote);
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ message: err.message });
-    }
+    await quote.save();
+    const populatedQuote = await quote.populate("customerId", "name");
+    emitQuoteUpdate(populatedQuote, { message: `Admin marked advance paid: ₹${paidAmount}` });
+    res.json(populatedQuote);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
-);
+});
+// ---------- Customer Pays Advance ----------
+router.patch("/quotes/:id/customer-advance-payment", auth, async (req, res) => {
+  try {
+    const quote = await Quote.findById(req.params.id).populate("customerId", "name");
+    if (!quote) return res.status(404).json({ message: "Quote not found" });
+
+    if (quote.status !== "Payment Requested")
+      return res.status(400).json({ message: "Advance not yet requested." });
+
+    const amountPaid = req.body.amount ?? quote.requestedAmount ?? 0;
+
+    // Record payment attempt
+    quote.payments.push({
+      method: req.body.method || "UPI",
+      transactionId: req.body.transactionId || `TXN_ADV_${Date.now()}`,
+      amount: amountPaid,
+      note: "Advance payment submitted (pending admin confirmation)",
+      confirmed: false, // ✅ flag to track admin confirmation
+    });
+
+    // Do NOT mark advancePaid yet
+    // quote.advancePaid = true;
+    // quote.status = "Advance Paid";
+
+    await quote.save();
+
+    const populatedQuote = await quote.populate("customerId", "name");
+    emitQuoteUpdate(populatedQuote, { message: `Advance payment submitted (pending confirmation)` });
+    res.json(populatedQuote);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: err.message });
+  }
+});
+router.patch("/quotes/:id/admin-confirm-advance", auth, authorize(["manage_quotes"]), async (req, res) => {
+  try {
+    const quote = await Quote.findById(req.params.id).populate("customerId", "name");
+    if (!quote) return res.status(404).json({ message: "Quote not found" });
+
+    if (quote.status !== "Payment Requested")
+      return res.status(400).json({ message: "Advance payment not requested yet." });
+
+    // Find last submitted payment and confirm
+    const lastPayment = quote.payments[quote.payments.length - 1];
+    if (!lastPayment) return res.status(400).json({ message: "No payment submitted by customer." });
+
+    lastPayment.confirmed = true;
+
+    // Update quote status
+    quote.advancePaid = true;
+    quote.status = "Advance Paid";
+ 
+
+    quote.balanceAmount = (quote.finalAmount ?? quote.estimatedRate) - lastPayment.amount;
+
+    await quote.save();
+    const populatedQuote = await quote.populate("customerId", "name");
+    emitQuoteUpdate(populatedQuote, { message: `Advance payment confirmed by admin: ₹${lastPayment.amount}` });
+
+    res.json(populatedQuote);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: err.message });
+  }
+});
+// PATCH /api/quotes/:id/customer-final-payment
+router.patch("/quotes/:id/customer-final-payment", async (req, res) => {
+  try {
+    const quote = await Quote.findById(req.params.id).populate("customerId", "name");
+    if (!quote) return res.status(404).json({ message: "Quote not found" });
+
+    const { amount, method, transactionId } = req.body;
+
+    quote.payments = quote.payments || [];
+    quote.payments.push({
+      amount: amount ?? 0,
+      method: method || "UPI",
+      transactionId: transactionId || `TXN_FINAL_${Date.now()}`,
+      date: new Date()
+    });
+
+    quote.status = "Final Payment Submitted";
+    await quote.save();
+
+    // Emit update
+    const io = socket.getIO();
+    io.to(`customer_${quote.customerId._id}`).emit("quote_updated", { quote });
+    io.to("admin").emit("quote_updated", { quote });
+
+    res.json(quote);
+  } catch (err) {
+    console.error("Customer final payment error:", err);
+    res.status(500).json({ message: err.message || "Server error" });
+  }
+});
+
+// ---------- Admin Requests Final Payment ----------
+router.patch("/quotes/:id/request-final-payment", auth, authorize(["manage_quotes"]), async (req, res) => {
+  try {
+    const { finalAmount } = req.body;
+    const quote = await Quote.findById(req.params.id).populate("customerId", "name");
+    if (!quote) return res.status(404).json({ message: "Quote not found" });
+
+    if (!quote.advancePaid)
+      return res.status(400).json({ message: "Advance must be paid before requesting final payment." });
+
+    const computedFinalAmount = finalAmount ?? quote.estimatedRate ?? 0;
+    const advancePaidAmount = quote.payments.reduce((s, p) => s + (p.amount || 0), 0);
+    const balance = computedFinalAmount - advancePaidAmount;
+
+    quote.finalAmount = computedFinalAmount;
+    quote.balanceAmount = Math.max(balance, 0);
+    quote.status = "Final Payment Requested";
+ // ✅ step for “Final Payment Requested”
+
+    await quote.save();
+
+    const populatedQuote = await quote.populate("customerId", "name");
+    emitQuoteUpdate(populatedQuote, { message: `Final payment requested: ₹${quote.balanceAmount}` });
+    res.json(populatedQuote);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+
 
 // ---------- Mark Paid (Admin) ----------
-router.patch('/quotes/:id/paid',auth, authorize(["manage_quotes"]), async (req, res) => {
+router.patch('/quotes/:id/finalPaid',auth, authorize(["manage_quotes"]), async (req, res) => {
   try {
     const quote = await Quote.findByIdAndUpdate(
       req.params.id,

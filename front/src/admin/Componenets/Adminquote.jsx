@@ -12,6 +12,8 @@ function StatusBadge({ status }) {
     "Quote Sent": "bg-blue-100 text-blue-800",
     "Approved Quote": "bg-purple-100 text-purple-800",
     "Payment Requested": "bg-indigo-100 text-indigo-800",
+       'Advance Paid': 'bg-indigo-100 text-purple-800',
+        'Final Payment Requested': 'bg-sky-100 text-yellow-900',
     Paid: "bg-emerald-100 text-emerald-800",
     Rejected: "bg-rose-100 text-rose-800",
   };
@@ -104,7 +106,17 @@ const fetchQuotes = async () => {
       url = `/api/quotes/${id}/step`;
       body = { trackingStep: value };
     }
-
+else if (action === "finalPayment") {
+  url = `/api/quotes/${id}/request-final-payment`;
+  body = { finalAmount: Number(value) };
+}
+else if (action === "finalPaid") {
+  url = `/api/quotes/${id}/finalPaid`;
+}
+else if (action === "confirmAdvance") {
+  url = `/api/quotes/${id}/admin-confirm-advance`;
+  body = {}; // No additional body needed
+}
     const res = await axios.patch(url, body, {
       headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` },
     });
@@ -145,37 +157,73 @@ useEffect(() => {
   return () => socket.off("quote_updated", handleQuoteUpdate);
 }, []);
 
-const getActions = (status) => {
-  switch (status) {
+const getActions = (quote) => {
+  switch (quote.status) {
     case "Pending":
-      return ["approve", "reject"];
     case "Quote Sent":
-      return ["approve", "reject"];  // <-- now editable
+      return ["approve", "reject"];
     case "Approved Quote":
-      return ["payment"];
-    case "Payment Requested":
-      return ["paid"];
+      return ["payment"]; // Request advance payment
+ case "Payment Requested":
+  return ["confirmAdvance"]; // Mark advance paid
+    case "Advance Paid":
+      return ["finalPayment"]; // Request final payment
+    case "Final Payment Requested":
+      return ["finalPaid"]; 
+       case "Final Payment Submitted":
+      return ["finalPaid"]; // Mark final paid
+    case "Paid": // Final paid complete
+      return []; // No further actions allowed
     default:
       return [];
   }
 };
 
 
+
+
 const handleActionClick = (action, quote) => {
-  if (action === "approve") {
-    // Pre-fill modal with current quote data
-    setModalData({ action, quote, value: quote.estimatedRate || "" });
-    setInputValue(quote.estimatedRate || "");
-  } else if (action === "payment") {
-    if (!quote.estimatedRate) {
-      alert("Estimated rate is missing. Approve the quote first.");
-      return;
-    }
-    setPaymentModalData({ quote, percentage: 50 }); // default 50%
-  } else {
-    performAction(action, quote._id);
+  switch (action) {
+    case "approve":
+      setModalData({ action, quote, value: quote.estimatedRate || "" });
+      setInputValue(quote.estimatedRate || "");
+      break;
+
+    case "payment":
+      if (!quote.estimatedRate) {
+        alert("Estimated rate missing. Approve the quote first.");
+        return;
+      }
+      setPaymentModalData({ quote, percentage: 50 });
+      break;
+
+    case "paid":
+      performAction("paid", quote._id);
+      break;
+
+    case "confirmAdvance":   // ✅ Added this
+      performAction("confirmAdvance", quote._id);
+      break;
+
+case "finalPayment":
+  // Automatically request final payment, no modal
+  performAction("finalPayment", quote._id);
+  break;
+
+    case "finalPaid":
+      performAction("finalPaid", quote._id);
+      break;
+
+    case "reject":
+      performAction("reject", quote._id);
+      break;
+
+    default:
+      break;
   }
 };
+
+
 
 
 const paginatedQuotes = useMemo(() => {
@@ -308,17 +356,21 @@ useEffect(() => {
                 className="border px-2 py-1 rounded text-xs w-full"
               >
                 <option value="">Action</option>
-                {getActions(q.status).map((a) => (
-                  <option key={a} value={a}>
-                    {a === "approve" && "Approve"}
-                    {a === "reject" && "Reject"}
-                    {a === "payment" && "Request Payment"}
-                    {a === "paid" && "Mark Paid"}
-                  </option>
-                ))}
+{getActions(q).map((a) => (
+  <option key={a} value={a}>
+    {a === "approve" && "Approve"}
+    {a === "reject" && "Reject"}
+    {a === "payment" && "Request Advance Payment"}
+    {a === "paid" && "Mark Advance Paid"}
+    {a === "finalPayment" && "Request Final Payment"}
+    {a === "finalPaid" && "Mark Final Paid"}
+    {a === "confirmAdvance" && "Confirm Advance Payment"}
+  </option>
+))}
+
               </select>
             </td>
-            <td className="px-3 py-2">
+   <td className="px-3 py-2">
               <select
                 value={q.trackingStep}
                 onChange={(e) => performAction("tracking", q._id, Number(e.target.value))}
@@ -385,6 +437,7 @@ useEffect(() => {
                 {a === "reject" && "Reject"}
                 {a === "payment" && "Request Payment"}
                 {a === "paid" && "Mark Paid"}
+                {a === "confirmAdvance" && "Confirm Advance Payment"}
               </option>
             ))}
           </select>

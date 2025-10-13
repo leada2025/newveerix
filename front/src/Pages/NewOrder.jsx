@@ -15,6 +15,8 @@ function Badge({ text }) {
     'Paid': 'bg-emerald-100 text-emerald-800',
     'Approved Quote': 'bg-sky-100 text-sky-800',
     'Payment Requested': 'bg-indigo-100 text-indigo-800',
+      'Advance Paid': 'bg-indigo-100 text-purple-800',
+        'Final Payment Requested': 'bg-sky-100 text-yellow-900',
     'Rejected': 'bg-white text-red-800'
   }[text] || 'bg-slate-100 text-slate-700';
   return <span className={`px-2 py-1 rounded-full text-xs font-medium ${color}`}>{text}</span>;

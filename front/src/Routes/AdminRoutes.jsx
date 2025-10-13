@@ -7,11 +7,13 @@ import AdminDashboard from "../admin/Pages/Dashboard";
 import RoleManager from "../admin/Pages/RoleManagement";
 import UserAccess from "../admin/Pages/UserAccess";
 import CustomerManagement from "../admin/Pages/CustomerManagement";
+import AdminFloatingChat from "../admin/Componenets/AdminFloatingChat";
 
 
 
 const AdminRoutes = () => {
   return (
+    <>
     <Routes>
       <Route path="/" element={<AdminLayout />}>
         {/* Nested admin pages */}
@@ -24,6 +26,8 @@ const AdminRoutes = () => {
    <Route path="/customer" element={<CustomerManagement />}></Route>         
       </Route>
     </Routes>
+    <AdminFloatingChat />
+    </>
   );
 };
 

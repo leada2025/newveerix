@@ -1,5 +1,13 @@
 const mongoose = require("mongoose");
 
+const PaymentSchema = new mongoose.Schema({
+  method: { type: String, default: "UPI" },
+  transactionId: String,
+  amount: Number,
+  date: { type: Date, default: Date.now },
+  note: String,
+});
+
 const QuoteSchema = new mongoose.Schema(
   {
     customerId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
@@ -9,34 +17,46 @@ const QuoteSchema = new mongoose.Schema(
     quantity: Number,
     unit: String,
 
-    status: {
-      type: String,
-      enum: [
-        "Pending",
-        "Quote Sent",
-        "Approved Quote",
-        "Payment Requested",
-        "Paid",
-        "Rejected",
-      ],
-      default: "Pending",
-    },
+status: {
+  type: String,
+  enum: [
+    "Pending",
+    "Quote Sent",
+    "Approved Quote",
+    "Payment Requested",      // Advance requested
+    "Advance Paid",           // Customer paid advance
+    "Final Payment Requested",
+    "Final Payment Submitted", // Admin requested balance
+    "Paid",                   // Fully paid
+    "Rejected",
+  ],
+  default: "Pending",
+},
+
 
     estimatedRate: Number,
-    requestedAmount: Number,
+    requestedAmount: Number,       // advance requested
+    requestedPercentage: Number,   // advance percent
 
-    // 🟢 Tracking progress
+    // new fields
+    advancePaid: { type: Boolean, default: false }, // true once customer paid advance
+    finalAmount: Number,          // full amount requested at final stage (remaining or full)
+    balanceAmount: Number,        // finalAmount - (advance paid)
+    payments: { type: [PaymentSchema], default: [] },
+
+    // tracking
     trackingStep: { type: Number, default: 0 },
     trackingSteps: {
       type: [String],
       default: [
         "Brand Name Submitted",
-        "Payment Confirmed",
+        "Advance Confirmed",
         "Packing Design",
         "Raw Material",
         "Under Production",
         "Under Packing",
         "Under Testing",
+        "Final Amount Confirmed",
         "Dispatched",
         "In Transit",
         "Received at Distribution Centre",
@@ -44,19 +64,19 @@ const QuoteSchema = new mongoose.Schema(
       ],
     },
 
-    // 🟢 New: Track history of step changes
     trackingHistory: [
       {
-        stepIndex: Number,              // e.g. 2
-        stepName: String,               // e.g. "Packing Design"
-        changedAt: { type: Date, default: Date.now }, // timestamp
+        stepIndex: Number,
+        stepName: String,
+        changedAt: { type: Date, default: Date.now },
       },
     ],
   },
   { timestamps: true }
 );
+
 QuoteSchema.index({ customerId: 1, brandName: 1 }, { unique: true });
-// 🔹 Whenever trackingStep is updated, push to trackingHistory
+
 QuoteSchema.pre("save", function (next) {
   if (this.isModified("trackingStep")) {
     this.trackingHistory.push({

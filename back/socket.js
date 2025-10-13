@@ -3,6 +3,7 @@ const Message = require("./models/Message");
 const Quote = require("./models/Quote");
 let io = null;
 const User = require("./models/User"); 
+const SupportMessage = require("./models/SupportMessage"); 
 module.exports = {
   init: (server) => {
     io = require("socket.io")(server, {
@@ -76,7 +77,63 @@ io.to("admin").emit("chat_message", { ...notification, target: "admin" });
         }
       });
 
+// ✅ Add these inside io.on("connection")
+   /*───────────────────────────────
+        🟡 SUPPORT CHAT SYSTEM
+      ───────────────────────────────*/
+      socket.on("join_support_customer", (customerId) => {
+        socket.join(`support_customer_${customerId}`);
+        console.log(`Support customer joined: ${customerId}`);
+      });
 
+      socket.on("join_support_admin", () => {
+        socket.join("support_admin");
+        console.log(`Support admin joined room: ${socket.id}`);
+      });
+
+      // Customer → Support
+      socket.on("support_customer_message", async ({ customerId, message }) => {
+        if (!customerId || !message) return;
+        try {
+          const payload = { customerId, message, sender: "customer", time: new Date() };
+          await SupportMessage.create(payload);
+
+          const customer = await User.findById(customerId).select("name");
+          const notification = {
+            ...payload,
+            customerName: customer?.name || "Customer",
+          };
+
+          io.to(`support_customer_${customerId}`).emit("support_chat", { ...notification, target: "customer" });
+          io.to("support_admin").emit("support_chat", { ...notification, target: "admin" });
+
+          console.log(`Support chat from customer ${customerId}`);
+        } catch (err) {
+          console.error(err);
+        }
+      });
+
+      // Admin → Support
+      socket.on("support_admin_message", async ({ customerId, message }) => {
+        if (!customerId || !message) return;
+        try {
+          const payload = { customerId, message, sender: "admin", time: new Date() };
+          await SupportMessage.create(payload);
+
+          const customer = await User.findById(customerId).select("name");
+          const notification = {
+            ...payload,
+            customerName: customer?.name || "Customer",
+          };
+
+          io.to(`support_customer_${customerId}`).emit("support_chat", { ...notification, target: "customer" });
+          io.to("support_admin").emit("support_chat", { ...notification, target: "admin" });
+
+          console.log(`Support chat from admin to ${customerId}`);
+        } catch (err) {
+          console.error(err);
+        }
+      });
 
   socket.on("disconnect", () => {
     console.log("Client disconnected:", socket.id);
