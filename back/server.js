@@ -11,7 +11,7 @@ const socket = require("./socket"); // ✅ import socket helper
 const messageRoutes = require("./routes/messageRoutes"); 
 const roleRoutes = require("./routes/roleRoutes")
 const notificationRoutes =require("./routes/notificationRoutes")
-const supportRoutes = require("./routes/support")
+const globalChatRoutes = require("./routes/globalChatRoutes");
 dotenv.config();
 
 const app = express();
@@ -33,7 +33,7 @@ app.use("/api", quoteRoutes);
 app.use("/api/roles", roleRoutes);
 app.use("/api/messages", require("./routes/messageRoutes"));
 app.use("/api/notifications",notificationRoutes)
-app.use("/api/support",supportRoutes)
+app.use("/api/globalchat", globalChatRoutes);
 const server = http.createServer(app);
 
 // Initialize socket.io

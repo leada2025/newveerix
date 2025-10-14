@@ -1,38 +1,33 @@
-// src/socket.js
+// src/Components/Socket.js
 import { io } from "socket.io-client";
 
-const SOCKET_URL = "http://localhost:5000"; // Replace with your server URL
-
+const SOCKET_URL = "https://newveerix-production.up.railway.app"; // your backend
 const socket = io(SOCKET_URL, {
   autoConnect: false,
   withCredentials: true,
   transports: ["websocket"],
 });
 
-// 🧠 Optional helper — connect safely
+// 🔹 Safe connection initializer
 export const connectSocket = (user) => {
   if (!socket.connected) socket.connect();
 
   if (user?.role === "admin") {
+    // Admin joins both normal and global admin rooms
     socket.emit("join_admin");
+    socket.emit("join_admin_global");
+    console.log("✅ Admin joined both admin and global admin rooms");
   } else if (user?._id) {
+    // Customer joins normal + global rooms
     socket.emit("join_customer", user._id);
+    socket.emit("join_global", user._id);
+    console.log(`✅ Customer ${user._id} joined global chat`);
   }
-  console.log("✅ Socket connected and room joined");
-};
-export const joinSupportRoom = ({ role, _id }) => {
-  if (!socket.connected) socket.connect();
 
-  if (role === "admin") {
-    socket.emit("join_support_admin");
-    console.log("🟢 Admin joined support room");
-  } else if (role === "customer" && _id) {
-    socket.emit("join_support_customer", _id);
-    console.log(`🟢 Customer ${_id} joined support room`);
-  }
+  console.log("✅ Socket connected and rooms joined");
 };
 
-// 🧩 Optional helper — disconnect cleanly
+// 🔹 Clean disconnect
 export const disconnectSocket = () => {
   if (socket.connected) socket.disconnect();
 };

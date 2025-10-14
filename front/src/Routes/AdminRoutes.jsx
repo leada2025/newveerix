@@ -7,7 +7,8 @@ import AdminDashboard from "../admin/Pages/Dashboard";
 import RoleManager from "../admin/Pages/RoleManagement";
 import UserAccess from "../admin/Pages/UserAccess";
 import CustomerManagement from "../admin/Pages/CustomerManagement";
-import AdminFloatingChat from "../admin/Componenets/AdminFloatingChat";
+import AdminGlobalChat from "../admin/Componenets/AdminGlobalchat";
+
 
 
 
@@ -26,7 +27,7 @@ const AdminRoutes = () => {
    <Route path="/customer" element={<CustomerManagement />}></Route>         
       </Route>
     </Routes>
-    <AdminFloatingChat />
+   <AdminGlobalChat/>
     </>
   );
 };
