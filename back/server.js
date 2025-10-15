@@ -17,7 +17,7 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 app.use(cors({
-  origin: ["http://localhost:5173","http://localhost:5174", "https://newveerix.vercel.app"],
+  origin: ["http://localhost:5173","http://localhost:5174", "https://newveerix.vercel.app","https://valuelink.veerixbiotech.in"],
    methods: ["GET", "POST", "PUT", "DELETE","PATCH"],
   credentials: true,
 }));

@@ -14,7 +14,8 @@ module.exports = {
           "http://localhost:5173",
           "http://localhost:5174",
           "http://localhost:5175",
-          "https://newveerix.vercel.app"
+          "https://newveerix.vercel.app",
+          "https://valuelink.veerixbiotech.in"
         ],
         methods: ["GET", "POST", "PATCH"],
         credentials: true,
