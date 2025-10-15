@@ -1,39 +1,69 @@
-// GlobalChat.jsx
 import React, { useState, useEffect, useRef } from "react";
 import socket from "../Components/Socket";
+import axios from "../api/Axios";
 
-export default function GlobalChat({ customerId }) {
+export default function GlobalChat({ customerId, onMessageReceived }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const messagesEndRef = useRef(null);
 
+  // Fetch message history
   useEffect(() => {
     if (!customerId) return;
 
+    const fetchMessages = async () => {
+      try {
+        const res = await axios.get(
+          `/api/globalChat/${customerId}`
+        );
+        setMessages(res.data);
+      } catch (err) {
+        console.error("Error fetching messages:", err);
+      }
+    };
+    fetchMessages();
+
     if (!socket.connected) socket.connect();
+    socket.emit("join_support_room", { _id: customerId, role: "customer" });
 
-    const handleConnect = () => socket.emit("join_global", customerId);
-    if (socket.connected) handleConnect();
-    socket.on("connect", handleConnect);
+    const handleMessage = (msg) => {
+      if (msg.customerId === customerId) {
+        setMessages((prev) => [...prev, msg]);
+        if (onMessageReceived) onMessageReceived(msg);
+      }
+    };
 
-    const handler = (payload) => setMessages((prev) => [...prev, payload]);
-    socket.on("global_chat_message", handler);
+    socket.on("global_chat_message", handleMessage);
 
     return () => {
-      socket.off("connect", handleConnect);
-      socket.off("global_chat_message", handler);
+      socket.off("global_chat_message", handleMessage);
     };
-  }, [customerId]);
+  }, [customerId, onMessageReceived]);
 
+  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (!input.trim()) return;
-    const msg = { customerId, message: input, sender: "customer", time: new Date().toISOString() };
+
+    const msg = {
+      customerId,
+      message: input,
+      sender: "customer",
+      time: new Date().toISOString(),
+    };
+
     setMessages((prev) => [...prev, msg]);
-    socket.emit("global_customer_message", { customerId, message: input });
+
+    try {
+      await axios.post("/api/globalChat", msg);
+      socket.emit("global_customer_message", msg);
+    } catch (err) {
+      console.error("Error sending message:", err);
+    }
+
     setInput("");
   };
 
@@ -41,18 +71,32 @@ export default function GlobalChat({ customerId }) {
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto p-3 bg-gray-50">
         {messages.length === 0 ? (
-          <div className="text-center text-gray-500 mt-4">No messages yet. Start a conversation!</div>
+          <div className="text-center text-gray-500 mt-4">
+            No messages yet. Start a conversation!
+          </div>
         ) : (
           messages.map((m, i) => (
-            <div key={i} className={`flex ${m.sender === "customer" ? "justify-end" : "justify-start"} mb-2`}>
+            <div
+              key={i}
+              className={`flex ${
+                m.sender === "customer" ? "justify-end" : "justify-start"
+              } mb-2`}
+            >
               <div
                 className={`px-3 py-2 rounded-lg max-w-[80%] break-words ${
-                  m.sender === "customer" ? "bg-[#d1383a] text-white" : "bg-gray-200 text-gray-800"
+                  m.sender === "customer"
+                    ? "bg-[#d1383a] text-white"
+                    : "bg-gray-200 text-gray-800"
                 }`}
               >
                 <div>{m.message}</div>
-                <div className={`text-xs mt-1 ${m.sender === "customer" ? "text-white/70" : "text-gray-500"}`}>
-                  {m.sender === "customer" ? "You" : "Support"} • {new Date(m.time).toLocaleTimeString()}
+                <div
+                  className={`text-xs mt-1 ${
+                    m.sender === "customer" ? "text-white/70" : "text-gray-500"
+                  }`}
+                >
+                  {m.sender === "customer" ? "You" : "Support"} •{" "}
+                  {new Date(m.time).toLocaleTimeString()}
                 </div>
               </div>
             </div>

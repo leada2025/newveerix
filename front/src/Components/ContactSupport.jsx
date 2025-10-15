@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { FaPhoneAlt, FaWhatsapp, FaTimes, FaCommentDots } from "react-icons/fa";
 import GlobalChat from "./GlobalChat";
 import socket from "../Components/Socket";
+import axios from "../api/Axios";
 
 const ContactSupport = ({ customerId }) => {
   const [isPanelOpen, setIsPanelOpen] = useState(() => {
@@ -15,33 +16,72 @@ const ContactSupport = ({ customerId }) => {
   const supportNumber = "+911234567890";
   const whatsappLink = `https://wa.me/${supportNumber.replace(/\D/g, "")}`;
 
-  useEffect(() => {
+  // 🔹 Fetch unread count from backend
+  const fetchUnread = async () => {
     if (!customerId) return;
-
-    if (socket.connected) {
-      socket.emit("join_support_room", { _id: customerId, role: "customer" });
+    try {
+      const res = await axios.get(
+        `/api/globalChat/unread-customer/${customerId}`
+      );
+      setUnreadCount(res.data.customerUnread || 0);
+    } catch (err) {
+      console.error("Failed to fetch unread count:", err);
     }
+  };
 
-    const handler = (msg) => {
-      if (msg.sender === "admin" && msg.target === "customer") {
-        setUnreadCount((c) => c + 1);
-      }
-    };
-    socket.on("support_chat", handler);
-
-    return () => socket.off("support_chat", handler);
+  // Run on mount and when customerId changes
+  useEffect(() => {
+    fetchUnread();
   }, [customerId]);
 
-  // Persist state to localStorage
+  // 🔹 Setup socket for real-time messages
+  useEffect(() => {
+    if (!customerId) return;
+    if (!socket.connected) socket.connect();
+
+    socket.emit("join_support_room", { _id: customerId, role: "customer" });
+
+    const handleMessage = (msg) => {
+      if (msg.customerId === customerId && msg.sender === "admin") {
+        if (!showChat) {
+          setUnreadCount((prev) => prev + 1);
+        } else {
+          fetchUnread();
+        }
+      }
+    };
+
+    socket.on("global_chat_message", handleMessage);
+
+    return () => {
+      socket.off("global_chat_message", handleMessage);
+    };
+  }, [customerId, showChat]);
+
+  // Persist panel state
   useEffect(() => {
     localStorage.setItem("isPanelOpen", isPanelOpen);
     localStorage.setItem("showChat", showChat);
   }, [isPanelOpen, showChat]);
 
-  const handleOpenChat = () => {
+  // 🔹 Open panel only (show WhatsApp / Call / Live Chat options)
+  const handleOpenPanel = () => {
     setIsPanelOpen(true);
-    setShowChat(true); // directly show chat
-    setUnreadCount(0);
+    setShowChat(false);
+  };
+
+  // 🔹 Open live chat
+  const handleOpenChat = async () => {
+    setShowChat(true);
+
+    try {
+      await axios.post(
+        `/api/globalChat/reset-customer-unread/${customerId}`
+      );
+      setUnreadCount(0);
+    } catch (err) {
+      console.error("Failed to reset unread count:", err);
+    }
   };
 
   const handleClosePanel = () => {
@@ -50,66 +90,60 @@ const ContactSupport = ({ customerId }) => {
   };
 
   return (
-    <div style={{ position: "fixed", bottom: "20px", right: "20px", zIndex: 999 }}>
-      {/* Floating Button */}
+    <div style={{ position: "fixed", bottom: "20px", left: "20px", zIndex: 999 }}>
       {!isPanelOpen ? (
-  <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-    {/* ✅ Image above button */}
-    <img
-      src="/images/wearehere.png" // ← your support icon or logo
-      alt="Contact Support"
-      style={{
-        width: "205px",
-        height: "105px",
-        objectFit: "contain",
-  
-        filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.2))",
-        cursor: "pointer",
-      }}
-      onClick={() => setIsPanelOpen(true)} // optional click on image too
-    />
-
-    {/* Chat button */}
-    <button
-      onClick={() => setIsPanelOpen(true)}
-      style={{
-        backgroundColor: "#d1383a",
-        border: "none",
-        borderRadius: "50%",
-        width: "60px",
-        height: "60px",
-        color: "#fff",
-        fontSize: "28px",
-        cursor: "pointer",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-        position: "relative",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <FaCommentDots />
-      {unreadCount > 0 && (
-        <span
-          style={{
-            position: "absolute",
-            top: "-5px",
-            right: "-5px",
-            backgroundColor: "#ff3b30",
-            color: "#fff",
-            borderRadius: "50%",
-            fontSize: "12px",
-            padding: "2px 6px",
-          }}
-        >
-          {unreadCount}
-        </span>
-      )}
-    </button>
-  </div>
-) : (
-
-        // Panel
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <img
+            src="/images/wearehere.png"
+            alt="Contact Support"
+            style={{
+              width: "205px",
+              height: "105px",
+              objectFit: "contain",
+              filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.2))",
+              cursor: "pointer",
+            }}
+            onClick={handleOpenPanel} // open panel instead of chat
+          />
+          <button
+            onClick={handleOpenPanel} // open panel instead of chat
+            style={{
+              backgroundColor: "#d1383a",
+              border: "none",
+              borderRadius: "50%",
+              width: "60px",
+              height: "60px",
+              color: "#fff",
+              fontSize: "28px",
+              cursor: "pointer",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+              position: "relative",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              marginTop: "10px",
+            }}
+          >
+            <FaCommentDots />
+            {unreadCount > 0 && (
+              <span
+                style={{
+                  position: "absolute",
+                  top: "-5px",
+                  right: "-5px",
+                  backgroundColor: "#ff3b30",
+                  color: "#fff",
+                  borderRadius: "50%",
+                  fontSize: "12px",
+                  padding: "2px 6px",
+                }}
+              >
+                {unreadCount}
+              </span>
+            )}
+          </button>
+        </div>
+      ) : (
         <div
           style={{
             width: "350px",
@@ -123,7 +157,6 @@ const ContactSupport = ({ customerId }) => {
             fontFamily: "Arial, sans-serif",
           }}
         >
-          {/* Header */}
           <div
             style={{
               backgroundColor: "#d1383a",
@@ -137,13 +170,9 @@ const ContactSupport = ({ customerId }) => {
             }}
           >
             Contact Support
-            <FaTimes
-              style={{ cursor: "pointer" }}
-              onClick={handleClosePanel}
-            />
+            <FaTimes style={{ cursor: "pointer" }} onClick={handleClosePanel} />
           </div>
 
-          {/* Info / Quick Actions */}
           {!showChat && (
             <div
               style={{
@@ -168,7 +197,7 @@ const ContactSupport = ({ customerId }) => {
                   <FaWhatsapp size={20} />
                 </a>
                 <button
-                  onClick={handleOpenChat}
+                  onClick={handleOpenChat} // opens chat now
                   style={{
                     backgroundColor: "#d1383a",
                     border: "none",
@@ -185,10 +214,12 @@ const ContactSupport = ({ customerId }) => {
             </div>
           )}
 
-          {/* Chat */}
           {showChat && customerId && (
             <div style={{ flex: 1, overflow: "hidden" }}>
-              <GlobalChat customerId={customerId} />
+              <GlobalChat
+                customerId={customerId}
+                onMessageReceived={() => setUnreadCount(0)}
+              />
             </div>
           )}
         </div>

@@ -19,7 +19,8 @@ const globalMessageSchema = new mongoose.Schema({
   time: {
     type: Date,
     default: Date.now
-  }
+  },
+  readByCustomer: { type: Boolean, default: false },
 });
 
 module.exports = mongoose.model('GlobalMessage', globalMessageSchema);

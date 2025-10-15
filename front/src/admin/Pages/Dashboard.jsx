@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import axios from "../../api/Axios";
-import  { useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router-dom";
 import {
   FileText,
   Clock,
@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Users,
+  XCircle, // ⬅️ Added reject icon
 } from "lucide-react";
 import {
   BarChart,
@@ -26,7 +27,6 @@ import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 
 // ----- Metric Card -----
-// ----- Metric Card -----
 function MetricCard({ icon, label, value, color, onClick }) {
   return (
     <div
@@ -41,7 +41,6 @@ function MetricCard({ icon, label, value, color, onClick }) {
     </div>
   );
 }
-
 
 // ----- Status Badge -----
 function StatusBadge({ status }) {
@@ -91,7 +90,8 @@ export default function AdminDashboard() {
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const sliderRef = useRef();
-const navigate = useNavigate()
+  const navigate = useNavigate();
+
   useEffect(() => {
     const fetchQuotes = async () => {
       try {
@@ -110,13 +110,17 @@ const navigate = useNavigate()
   }, []);
 
   // ---- Metrics -----
-  const metrics = useMemo(() => ({
-    total: quotes.length,
-    pending: quotes.filter((q) => q.status === "Pending").length,
-    quoteSent: quotes.filter((q) => q.status === "Quote Sent").length,
-    paymentRequested: quotes.filter((q) => q.status === "Payment Requested").length,
-    paid: quotes.filter((q) => q.status === "Paid").length,
-  }), [quotes]);
+  const metrics = useMemo(
+    () => ({
+      total: quotes.length,
+      pending: quotes.filter((q) => q.status === "Pending").length,
+      quoteSent: quotes.filter((q) => q.status === "Quote Sent").length,
+      paymentRequested: quotes.filter((q) => q.status === "Payment Requested").length,
+      paid: quotes.filter((q) => q.status === "Paid").length,
+      rejected: quotes.filter((q) => q.status === "Rejected").length, // ✅ new
+    }),
+    [quotes]
+  );
 
   // ---- Chart Data -----
   const chartData = useMemo(() => {
@@ -145,47 +149,53 @@ const navigate = useNavigate()
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-7xl  mx-auto space-y-8">
-
+      <div className="max-w-7xl mx-auto space-y-8">
         {/* Metrics */}
-        {/* Metrics */}
-<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-  <MetricCard
-    color="bg-gradient-to-r from-gray-700 to-gray-900"
-    icon={<FileText className="w-6 h-6 text-white" />}
-    label="Total Quotes"
-    value={metrics.total}
-    onClick={() => navigate("/admin/quote?status=All")}
-  />
-  <MetricCard
-    color="bg-gradient-to-r from-amber-500 to-amber-700"
-    icon={<Clock className="w-6 h-6 text-white" />}
-    label="Pending"
-    value={metrics.pending}
-    onClick={() => navigate("/admin/quote?status=Pending")}
-  />
-  <MetricCard
-    color="bg-gradient-to-r from-blue-500 to-blue-700"
-    icon={<FileText className="w-6 h-6 text-white" />}
-    label="Quote Sent"
-    value={metrics.quoteSent}
-    onClick={() => navigate("/admin/quote?status=Quote Sent")}
-  />
-  <MetricCard
-    color="bg-gradient-to-r from-indigo-500 to-indigo-700"
-    icon={<DollarSign className="w-6 h-6 text-white" />}
-    label="Payment Requested"
-    value={metrics.paymentRequested}
-    onClick={() => navigate("/admin/quote?status=Payment Requested")}
-  />
-  <MetricCard
-    color="bg-gradient-to-r from-green-500 to-green-700"
-    icon={<DollarSign className="w-6 h-6 text-white" />}
-    label="Paid"
-    value={metrics.paid}
-    onClick={() => navigate("/admin/quote?status=Paid")}
-  />
-</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-6">
+          <MetricCard
+            color="bg-gradient-to-r from-gray-700 to-gray-900"
+            icon={<FileText className="w-6 h-6 text-white" />}
+            label="Total Quotes"
+            value={metrics.total}
+            onClick={() => navigate("/admin/quote?status=All")}
+          />
+          <MetricCard
+            color="bg-gradient-to-r from-amber-500 to-amber-700"
+            icon={<Clock className="w-6 h-6 text-white" />}
+            label="Pending"
+            value={metrics.pending}
+            onClick={() => navigate("/admin/quote?status=Pending")}
+          />
+          <MetricCard
+            color="bg-gradient-to-r from-blue-500 to-blue-700"
+            icon={<FileText className="w-6 h-6 text-white" />}
+            label="Quote Sent"
+            value={metrics.quoteSent}
+            onClick={() => navigate("/admin/quote?status=Quote Sent")}
+          />
+          <MetricCard
+            color="bg-gradient-to-r from-indigo-500 to-indigo-700"
+            icon={<DollarSign className="w-6 h-6 text-white" />}
+            label="Payment Requested"
+            value={metrics.paymentRequested}
+            onClick={() => navigate("/admin/quote?status=Payment Requested")}
+          />
+          <MetricCard
+            color="bg-gradient-to-r from-green-500 to-green-700"
+            icon={<DollarSign className="w-6 h-6 text-white" />}
+            label="Paid"
+            value={metrics.paid}
+            onClick={() => navigate("/admin/quote?status=Paid")}
+          />
+          {/* ✅ New Rejected Card */}
+          <MetricCard
+            color="bg-gradient-to-r from-rose-500 to-rose-700"
+            icon={<XCircle className="w-6 h-6 text-white" />}
+            label="Rejected"
+            value={metrics.rejected}
+            onClick={() => navigate("/admin/quote?status=Rejected")}
+          />
+        </div>
 
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -228,71 +238,63 @@ const navigate = useNavigate()
           </div>
         </div>
 
-        {/* Recent Quotes Carousel */}
-        {/* Recent Quotes (Professional List) */}
-<div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-  {/* Header */}
-  <div className="flex items-center justify-between mb-5">
-    <h2 className="text-lg font-semibold text-slate-800">Recent Quotes</h2>
-    <button
-      onClick={() => navigate("/admin/quote")}
-      className="text-sm text-[#d1383a] hover:text-[#b52f31] hover:underline font-medium transition"
-    >
-      View All
-    </button>
-  </div>
-
-  {loading ? (
-    <p className="text-sm text-slate-500 py-2">Loading...</p>
-  ) : quotes.length === 0 ? (
-    <p className="text-sm text-slate-500 py-2">No quotes found.</p>
-  ) : (
-    <div className="space-y-4">
-      {quotes
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-        .slice(0, 5)
-        .map((q) => (
-          <div
-            key={q._id}
-            className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200 bg-white"
-          >
-            {/* Left — Customer & Quote info */}
-            <div className="flex items-center gap-4">
-              {/* Optional avatar/icon */}
-              <div className="w-10 h-10 bg-[#d1383a]/20 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                {q.customerId?.name?.[0] || "C"}
-              </div>
-              <div className="flex flex-col">
-                <span className="font-medium text-slate-800 text-sm sm:text-base">
-                  {q.customerId?.name || "Customer"}
-                </span>
-                <span className="text-slate-500 text-sm">
-                  {q.brandName || "-"} — {q.moleculeName || `Custom: ${q.customMolecule || "-"}`}
-                </span>
-              </div>
-            </div>
-
-            {/* Right — Meta info */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4 mt-3 sm:mt-0">
-              <span className="text-sm font-medium text-slate-700">
-                Qty: {q.quantity} {q.unit}
-              </span>
-              <span className="text-xs text-slate-400 whitespace-nowrap">
-                {new Date(q.createdAt).toLocaleDateString("en-IN", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                })}
-              </span>
-              <StatusBadge status={q.status} />
-            </div>
+        {/* Recent Quotes List */}
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-lg font-semibold text-slate-800">Recent Quotes</h2>
+            <button
+              onClick={() => navigate("/admin/quote")}
+              className="text-sm text-[#d1383a] hover:text-[#b52f31] hover:underline font-medium transition"
+            >
+              View All
+            </button>
           </div>
-        ))}
-    </div>
-  )}
-</div>
 
-
+          {loading ? (
+            <p className="text-sm text-slate-500 py-2">Loading...</p>
+          ) : quotes.length === 0 ? (
+            <p className="text-sm text-slate-500 py-2">No quotes found.</p>
+          ) : (
+            <div className="space-y-4">
+              {quotes
+                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                .slice(0, 5)
+                .map((q) => (
+                  <div
+                    key={q._id}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200 bg-white"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-[#d1383a]/20 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                        {q.customerId?.name?.[0] || "C"}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-medium text-slate-800 text-sm sm:text-base">
+                          {q.customerId?.name || "Customer"}
+                        </span>
+                        <span className="text-slate-500 text-sm">
+                          {q.brandName || "-"} — {q.moleculeName || `Custom: ${q.customMolecule || "-"}`}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-4 mt-3 sm:mt-0">
+                      <span className="text-sm font-medium text-slate-700">
+                        Qty: {q.quantity} {q.unit}
+                      </span>
+                      <span className="text-xs text-slate-400 whitespace-nowrap">
+                        {new Date(q.createdAt).toLocaleDateString("en-IN", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </span>
+                      <StatusBadge status={q.status} />
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

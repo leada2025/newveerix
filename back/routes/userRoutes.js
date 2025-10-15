@@ -63,7 +63,9 @@ router.post("/login", async (req, res) => {
 
   const user = await User.findOne({ email }).populate("role");
   if (!user) return res.status(401).json({ message: "Invalid credentials" });
-
+  if (!user.active) {
+    return res.status(403).json({ message: "Your account is inactive. Please contact admin." });
+  }
   const isMatch = await user.matchPassword(password);
   if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
 
@@ -331,20 +333,23 @@ router.patch(
   authorize(["manage_users"]),
   async (req, res) => {
     try {
-      const user = await User.findById(req.params.id).populate("role", "name");
+      let user = await User.findById(req.params.id).populate("role");
       if (!user) return res.status(404).json({ message: "Customer not found" });
-      if (user.role?.name !== "customer")
-        return res.status(400).json({ message: "This user is not a customer" });
 
-      // Toggle active if present
+      // Determine role name
+      const roleName =
+        typeof user.role === "object" ? user.role.name : user.role;
+
+      if (roleName !== "customer") {
+        return res
+          .status(400)
+          .json({ message: "This user is not a customer" });
+      }
+
+      // ✅ Toggle or set active
       if (typeof req.body.active === "boolean") {
         user.active = req.body.active;
       }
-
-      // Optional: also allow name/email/password update in same endpoint
-      user.name = req.body.name || user.name;
-      user.email = req.body.email || user.email;
-      if (req.body.password) user.password = req.body.password;
 
       await user.save();
 
@@ -354,7 +359,6 @@ router.patch(
           _id: user._id,
           name: user.name,
           email: user.email,
-          role: "customer",
           active: user.active,
         },
       });

@@ -41,18 +41,24 @@ const SignupPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-[#f0f9ff]">
-      <div className="max-w-md w-full bg-white shadow-md rounded-2xl p-8 space-y-6">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-white p-4">
+      <div className="max-w-md w-full bg-white shadow-xl rounded-3xl p-8 space-y-6 overflow-y-auto max-h-[90vh]">
+        {/* Logo */}
         <div className="flex justify-center">
-          <img src={veerixLogo} alt="Veerix Logo" className="h-16" />
+          <img src={veerixLogo} alt="Veerix Logo" className="h-16 w-auto" />
         </div>
 
-        <h2 className="text-2xl font-bold text-center text-[#d1383a]">
-          Create Account
+        {/* Heading */}
+        <h2 className="text-3xl font-bold text-center text-[#d1383a]">
+          Create Your Account
         </h2>
 
-        {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+        {/* Error Message */}
+        {error && (
+          <p className="text-red-500 text-sm text-center font-medium">{error}</p>
+        )}
 
+        {/* Form */}
         <form className="space-y-4" onSubmit={handleSignup}>
           {/* Name */}
           <div>
@@ -61,9 +67,10 @@ const SignupPage = () => {
               type="text"
               name="name"
               required
+              placeholder="Enter your full name"
               value={form.name}
               onChange={handleChange}
-              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+              className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#d1383a]"
             />
           </div>
 
@@ -74,9 +81,10 @@ const SignupPage = () => {
               type="email"
               name="email"
               required
+              placeholder="Enter your email address"
               value={form.email}
               onChange={handleChange}
-              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+              className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#d1383a]"
             />
           </div>
 
@@ -86,10 +94,10 @@ const SignupPage = () => {
             <input
               type="text"
               name="city"
+              placeholder="Enter your city"
               value={form.city}
               onChange={handleChange}
-              placeholder="Enter your city"
-              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+              className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#d1383a]"
             />
           </div>
 
@@ -101,23 +109,23 @@ const SignupPage = () => {
             <input
               type="text"
               name="companyName"
+              placeholder="Enter your company name"
               value={form.companyName}
               onChange={handleChange}
-              placeholder="Enter your company name"
-              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+              className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#d1383a]"
             />
           </div>
 
-          {/* GST No */}
+          {/* GST Number */}
           <div>
             <label className="block text-sm font-medium text-gray-700">GST Number</label>
             <input
               type="text"
               name="GSTno"
+              placeholder="Enter your GST number"
               value={form.GSTno}
               onChange={handleChange}
-              placeholder="Enter GST number"
-              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+              className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#d1383a]"
             />
           </div>
 
@@ -129,34 +137,36 @@ const SignupPage = () => {
                 type={showPassword ? "text" : "password"}
                 name="password"
                 required
+                placeholder="Enter a strong password"
                 value={form.password}
                 onChange={handleChange}
-                className="mt-1 w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                className="mt-1 w-full px-4 py-2 pr-20 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#d1383a]"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-2 flex items-center text-gray-500 hover:text-gray-700 text-sm"
+                className="absolute inset-y-0 right-4 flex items-center text-gray-500 hover:text-gray-700 text-sm font-medium"
               >
                 {showPassword ? "Hide" : "Show"}
               </button>
             </div>
           </div>
 
-          {/* Submit */}
+          {/* Submit Button */}
           <button
             type="submit"
-            className="w-full py-2 rounded-md font-semibold bg-[#d1383a] text-white hover:bg-[#b52f30] transition"
+            className="w-full py-3 rounded-lg font-semibold bg-[#d1383a] text-white hover:bg-[#b52f30] transition duration-200"
           >
             Sign Up
           </button>
         </form>
 
-        <p className="text-center text-sm">
+        {/* Login Redirect */}
+        <p className="text-center text-sm text-gray-600">
           Already have an account?{" "}
           <span
             onClick={() => navigate("/login")}
-            className="text-[#d1383a] cursor-pointer hover:underline"
+            className="text-[#d1383a] cursor-pointer font-medium hover:underline"
           >
             Login
           </span>

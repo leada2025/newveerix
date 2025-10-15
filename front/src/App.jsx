@@ -8,6 +8,7 @@ import AdminRoutes from "./Routes/AdminRoutes";
 import AppLayout from "./Components/AppLayout";
 import WelcomePage from "./Pages/Welcome";
 import { connectSocket, disconnectSocket } from "./Components/Socket"; // ✅ import this
+import VeerixOrdersLanding from "./Pages/VeerixLandingpage";
 
 const ProtectedRoute = ({ children, allowCustomer = false }) => {
   const authToken = localStorage.getItem("authToken");
@@ -40,7 +41,8 @@ function App() {
   return (
     <Routes>
       {/* Public routes */}
-      <Route path="/" element={<SignupPage />} />
+      <Route path="/" element={<VeerixOrdersLanding />} />
+      <Route path="/signup" element={<SignupPage />} />
       <Route path="/login" element={<LoginPage />} />
 
       {/* Customer welcome page */}

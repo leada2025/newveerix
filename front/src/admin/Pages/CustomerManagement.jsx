@@ -115,18 +115,25 @@ export default function CustomerManagement() {
     setOpen(true);
   };
 
-  const handleToggleActive = async (customer) => {
-    try {
-      await axios.patch(
-        `/api/users/customers/${customer._id}`,
-        { active: !customer.active },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      fetchCustomers();
-    } catch (err) {
-      console.error(err);
-    }
-  };
+const handleToggleActive = async (customer) => {
+  try {
+    await axios.patch(`/api/users/customers/${customer._id}`, {
+      active: !customer.active,
+    }, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    // Update state instantly
+    setCustomers((prev) =>
+      prev.map((c) =>
+        c._id === customer._id ? { ...c, active: !c.active } : c
+      )
+    );
+  } catch (err) {
+    console.error(err);
+  }
+};
+
 
   // ✅ Pagination logic
   const totalPages = Math.ceil(customers.length / perPage);
