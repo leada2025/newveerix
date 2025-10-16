@@ -177,7 +177,7 @@ function MetricsGrid({ metrics, onMetricClick }) {
       <MetricCard
         color="from-purple-500 to-purple-600"
         icon={<FileText className="w-6 h-6 text-white" />}
-        label="Quote Sent"
+        label="Quote Received"
         value={metrics.quoteSent}
         onClick={() => onMetricClick("Quote Sent")}
       />

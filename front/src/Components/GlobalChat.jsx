@@ -55,7 +55,7 @@ export default function GlobalChat({ customerId, onMessageReceived }) {
       time: new Date().toISOString(),
     };
 
-    setMessages((prev) => [...prev, msg]);
+   
 
     try {
       await axios.post("/api/globalChat", msg);

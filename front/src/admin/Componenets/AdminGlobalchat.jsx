@@ -91,13 +91,7 @@ export default function AdminGlobalChat() {
       time: new Date().toISOString()
     };
 
-    setChats((prev) => ({
-      ...prev,
-      [activeCustomer]: {
-        ...prev[activeCustomer],
-        messages: [...prev[activeCustomer].messages, message]
-      }
-    }));
+
 
     try {
   

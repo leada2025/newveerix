@@ -3,7 +3,7 @@ const Message = require("./models/Message");
 const Quote = require("./models/Quote");
 const User = require("./models/User");
 const GlobalMessage = require("./models/GlobalMessage");
-
+const GlobalUnread = require("./models/GlobalUnread");
 let io = null;
 
 module.exports = {
@@ -118,26 +118,34 @@ module.exports = {
       });
 
       // 🔹 Admin sends message in global chat
-      socket.on("global_admin_message", async ({ customerId, message }) => {
-        if (!customerId) return;
-        try {
-          const payload = { customerId, message, sender: "admin", time: new Date() };
-          await GlobalMessage.create(payload);
+socket.on("global_admin_message", async ({ customerId, message }) => {
+  if (!customerId) return;
+  try {
+    const payload = { customerId, message, sender: "admin", time: new Date() };
+    await GlobalMessage.create(payload);
 
-          const customer = await User.findById(customerId).select("name");
+    // 🔹 Increment unread for the customer
+    await GlobalUnread.findOneAndUpdate(
+      { customerId },
+      { $inc: { customerUnread: 1 } },
+      { upsert: true, new: true }
+    );
 
-          const notification = {
-            ...payload,
-            customerName: customer?.name || "Customer",
-            type: "global",
-          };
+    const customer = await User.findById(customerId).select("name");
 
-          io.to(`global_${customerId}`).emit("global_chat_message", { ...notification, target: "customer" });
-          io.to("admin_global").emit("global_chat_message", { ...notification, target: "admin" });
-        } catch (err) {
-          console.error("Error in global_admin_message:", err);
-        }
-      });
+    const notification = {
+      ...payload,
+      customerName: customer?.name || "Customer",
+      type: "global",
+    };
+
+    io.to(`global_${customerId}`).emit("global_chat_message", { ...notification, target: "customer" });
+    io.to("admin_global").emit("global_chat_message", { ...notification, target: "admin" });
+  } catch (err) {
+    console.error("Error in global_admin_message:", err);
+  }
+});
+
 
       socket.on("disconnect", () => {
         console.log("Client disconnected:", socket.id);

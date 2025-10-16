@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect ,useRef} from "react";
 import { Bell, LogOut, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import socket from "../Components/Socket";
@@ -19,7 +19,8 @@ export default function Navbar() {
   const navbarBg = "bg-[#d1383a]";
   const brandName = "Manufacturing Tracker";
   const navigate = useNavigate();
-
+const dropdownRef = useRef(null); // 👈 ref for notification dropdown
+const bellRef = useRef(null); 
   // 🔥 Socket setup and listeners
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
@@ -210,6 +211,27 @@ useEffect(() => {
     }
     setNotifications((prev) => prev.map((n) => ({ ...n, seen: true })));
   };
+useEffect(() => {
+  function handleClickOutside(event) {
+    // If clicking outside both the dropdown and the bell
+    if (
+      dropdownRef.current &&
+      !dropdownRef.current.contains(event.target) &&
+      bellRef.current &&
+      !bellRef.current.contains(event.target)
+    ) {
+      setOpen(false);
+    }
+  }
+
+  if (open) {
+    document.addEventListener("mousedown", handleClickOutside);
+  } else {
+    document.removeEventListener("mousedown", handleClickOutside);
+  }
+
+  return () => document.removeEventListener("mousedown", handleClickOutside);
+}, [open]);
 
   return (
     <header
@@ -220,6 +242,7 @@ useEffect(() => {
       <div className="flex items-center gap-4 relative">
         {/* Notification Bell */}
         <button
+         ref={bellRef}
           onClick={handleOpenNotifications}
           className="relative p-2 rounded-full hover:bg-white/20 transition"
         >
@@ -233,7 +256,7 @@ useEffect(() => {
 
         {/* Notifications Dropdown */}
         {open && (
-          <div className="absolute right-0 top-12 bg-white text-black rounded-lg shadow-lg w-64 p-3 max-h-64 overflow-y-auto z-50">
+          <div   ref={dropdownRef} className="absolute right-0 top-12 bg-white text-black rounded-lg shadow-lg w-64 p-3 max-h-64 overflow-y-auto z-50">
             {notifications.length === 0 ? (
               <p className="text-sm text-gray-500">No new notifications</p>
             ) : (
