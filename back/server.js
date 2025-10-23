@@ -16,11 +16,27 @@ dotenv.config();
 
 const app = express();
 app.use(express.json());
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "https://newveerix.vercel.app",
+  "https://valuelink.veerixbiotech.in"
+];
+
 app.use(cors({
-  origin: ["http://localhost:5173","http://localhost:5174", "https://newveerix.vercel.app","https://valuelink.veerixbiotech.in"],
-   methods: ["GET", "POST", "PUT", "DELETE","PATCH"],
+  origin: (origin, callback) => {
+    // allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`Not allowed by CORS: ${origin}`));
+    }
+  },
   credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
 }));
+
 
 mongoose
   .connect(process.env.MONGO_URI)
