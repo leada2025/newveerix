@@ -99,6 +99,7 @@ export default function AdminDashboard() {
         const res = await axios.get("/api/quotes", {
           headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` },
         });
+        console.log("Statuses:", res.data.map(q => q.status)); 
         setQuotes(res.data);
       } catch (err) {
         console.error("Failed to fetch quotes:", err);
@@ -124,14 +125,22 @@ export default function AdminDashboard() {
 
   // ---- Chart Data -----
   const chartData = useMemo(() => {
-    const statuses = ["Pending", "Quote Sent", "Payment Requested", "Paid", "Rejected"];
+    const statuses = ["Pending", "Quote Sent", "Payment Requested", "Final Payment Requested", "Paid", "Rejected"];
     return statuses.map((status) => ({
       name: status,
       value: quotes.filter((q) => q.status === status).length,
     }));
   }, [quotes]);
 
-  const COLORS = ["#facc15", "#3b82f6", "#6366f1", "#10b981", "#ef4444"];
+  const COLORS = [
+  "#facc15", // Pending (yellow)
+  "#3b82f6", // Quote Sent (blue)
+  "#6366f1", // Payment Requested (indigo)
+  "#8b5cf6", // Final Payment Requested (violet)
+  "#10b981", // Paid (green)
+  "#ef4444", // Rejected (red)
+];
+
 
   // ---- Slider Settings -----
   const sliderSettings = {
@@ -207,7 +216,12 @@ export default function AdminDashboard() {
                 <XAxis dataKey="name" />
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="value" fill="#d43731ff" radius={[6, 6, 0, 0]} />
+               <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+  {chartData.map((entry, index) => (
+    <Cell key={`bar-${index}`} fill={COLORS[index % COLORS.length]} />
+  ))}
+</Bar>
+
               </BarChart>
             </ResponsiveContainer>
           </div>

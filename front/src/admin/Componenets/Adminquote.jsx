@@ -332,9 +332,16 @@ useEffect(() => {
             <td className="px-3 py-2 truncate max-w-[100px]" title={q.brandName}>
               {q.brandName || "-"}
             </td>
-            <td className="px-3 py-2 truncate max-w-[140px]" title={q.moleculeName || q.customMolecule}>
-              {q.moleculeName || `Custom: ${q.customMolecule}`}
-            </td>
+
+
+<td className="relative px-3 py-2 max-w-[140px] group">
+  <span className="truncate block">{q.moleculeName || `Custom: ${q.customMolecule}`}</span>
+  <span className="absolute hidden group-hover:block bg-white border border-gray-200 shadow-lg text-xs p-2 rounded w-60 z-50">
+    {q.moleculeName || q.customMolecule}
+  </span>
+</td>
+
+
             <td className="px-3 py-2">{q.quantity} {q.unit}</td>
             <td className="px-3 py-2">{q.estimatedRate ? `₹${q.estimatedRate}` : "-"}</td>
             <td className="px-3 py-2">{q.requestedAmount ? `₹${q.requestedAmount}` : "-"}</td>

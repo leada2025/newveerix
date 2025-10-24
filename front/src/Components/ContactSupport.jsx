@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { FaPhoneAlt, FaWhatsapp, FaTimes, FaCommentDots } from "react-icons/fa";
 import GlobalChat from "./GlobalChat";
 import socket from "../Components/Socket";
@@ -13,6 +13,7 @@ const ContactSupport = ({ customerId }) => {
   });
   const [unreadCount, setUnreadCount] = useState(0);
 
+  const panelRef = useRef(null); // 🔹 Ref for detecting outside clicks
   const supportNumber = "+911234567890";
   const whatsappLink = `https://wa.me/${supportNumber.replace(/\D/g, "")}`;
 
@@ -20,16 +21,13 @@ const ContactSupport = ({ customerId }) => {
   const fetchUnread = async () => {
     if (!customerId) return;
     try {
-      const res = await axios.get(
-        `/api/globalChat/unread-customer/${customerId}`
-      );
+      const res = await axios.get(`/api/globalChat/unread-customer/${customerId}`);
       setUnreadCount(res.data.customerUnread || 0);
     } catch (err) {
       console.error("Failed to fetch unread count:", err);
     }
   };
 
-  // Run on mount and when customerId changes
   useEffect(() => {
     fetchUnread();
   }, [customerId]);
@@ -52,32 +50,39 @@ const ContactSupport = ({ customerId }) => {
     };
 
     socket.on("global_chat_message", handleMessage);
-
-    return () => {
-      socket.off("global_chat_message", handleMessage);
-    };
+    return () => socket.off("global_chat_message", handleMessage);
   }, [customerId, showChat]);
 
-  // Persist panel state
+  // 🔹 Persist state
   useEffect(() => {
     localStorage.setItem("isPanelOpen", isPanelOpen);
     localStorage.setItem("showChat", showChat);
   }, [isPanelOpen, showChat]);
 
-  // 🔹 Open panel only (show WhatsApp / Call / Live Chat options)
+  // 🔹 Outside click handler
+  useEffect(() => {
+    if (!isPanelOpen) return;
+
+    const handleClickOutside = (e) => {
+      if (panelRef.current && !panelRef.current.contains(e.target)) {
+        setIsPanelOpen(false);
+        setShowChat(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isPanelOpen]);
+
   const handleOpenPanel = () => {
     setIsPanelOpen(true);
     setShowChat(false);
   };
 
-  // 🔹 Open live chat
   const handleOpenChat = async () => {
     setShowChat(true);
-
     try {
-      await axios.post(
-        `/api/globalChat/reset-customer-unread/${customerId}`
-      );
+      await axios.post(`/api/globalChat/reset-customer-unread/${customerId}`);
       setUnreadCount(0);
     } catch (err) {
       console.error("Failed to reset unread count:", err);
@@ -103,10 +108,10 @@ const ContactSupport = ({ customerId }) => {
               filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.2))",
               cursor: "pointer",
             }}
-            onClick={handleOpenPanel} // open panel instead of chat
+            onClick={handleOpenPanel}
           />
           <button
-            onClick={handleOpenPanel} // open panel instead of chat
+            onClick={handleOpenPanel}
             style={{
               backgroundColor: "#d1383a",
               border: "none",
@@ -145,6 +150,7 @@ const ContactSupport = ({ customerId }) => {
         </div>
       ) : (
         <div
+          ref={panelRef} // 👈 attached ref for outside click detection
           style={{
             width: "350px",
             maxHeight: "500px",
@@ -197,7 +203,7 @@ const ContactSupport = ({ customerId }) => {
                   <FaWhatsapp size={20} />
                 </a>
                 <button
-                  onClick={handleOpenChat} // opens chat now
+                  onClick={handleOpenChat}
                   style={{
                     backgroundColor: "#d1383a",
                     border: "none",

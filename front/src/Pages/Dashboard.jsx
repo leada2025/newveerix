@@ -34,7 +34,7 @@ const getStatusLabel = (status) => {
     case "Rejected":
       return "Rejected";
     case "Quote Sent":
-      return "Quote Sent";
+      return "Quote Received";
     case "Payment Requested":
       return "Payment Requested";
     case "Approved Quote":
