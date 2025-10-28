@@ -670,8 +670,50 @@ if (!open) return null;
     {/* ✅ Conditions for final payment stage */}
     {quote?.status === "Paid" || quote?.finalPaid ? (
       // ✅ Full Payment Done
-      <div className="p-4 bg-green-50 border border-green-200 rounded text-green-800">
-        ✅ Full payment received. Order complete.
+      <div className="p-4 bg-green-50 border border-green-200 rounded text-green-800 flex flex-col gap-3">
+        <div>✅ Full payment received. Order complete.</div>
+
+        {/* ✅ Download Invoice after full payment */}
+        {quote?.invoiceUrl && (
+          <button
+            onClick={async () => {
+              try {
+                const response = await fetch(quote.invoiceUrl);
+                if (!response.ok) throw new Error("File not found");
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = quote.invoiceName || "Invoice.pdf";
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                window.URL.revokeObjectURL(url);
+              } catch (error) {
+                console.error("Download failed:", error);
+                alert("Unable to download the invoice. Please try again later.");
+              }
+            }}
+            className="flex items-center gap-2 w-fit text-slate-700 hover:text-emerald-600 transition-colors border border-slate-200 rounded-lg px-4 py-2 bg-white"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+              className="w-5 h-5"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 16.5v-9m0 9l3-3m-3 3l-3-3m9 6a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0018.75 4.5H5.25A2.25 2.25 0 003 6.75v10.5A2.25 2.25 0 005.25 19.5h13.5z"
+              />
+            </svg>
+            <span className="text-sm font-medium">Download Invoice</span>
+          </button>
+        )}
       </div>
     ) : quote?.status === "Final Payment Requested" ? (
       <>
