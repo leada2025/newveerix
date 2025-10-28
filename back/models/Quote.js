@@ -13,7 +13,11 @@ const QuoteSchema = new mongoose.Schema(
     customerId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 
     // brand info
-    brandName: { type: String, default: null },
+     brandName: { 
+      type: String, 
+      default: "", // Change from null to empty string
+      trim: true 
+    },
     addBrandLater: { type: Boolean, default: false }, // ✅ new field
 
     moleculeName: String,

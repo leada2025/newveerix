@@ -131,7 +131,7 @@ const submitQuote = async () => {
     const existingRes = await axios.get(`/api/quotes/customer/${user._id}`);
   const existingBrandNames = existingRes.data
   .map(q => (q.brandName ? q.brandName.toLowerCase() : ""))
-  .filter(Boolean); // remove empty ones
+  .filter(name => name !== "")
 
 
     if (existingBrandNames.includes(form.brand.toLowerCase())) {
@@ -146,7 +146,7 @@ const submitQuote = async () => {
   customMolecule: form.customMolecule,
   quantity: form.qty,
   unit: form.unit,
-  brandName: form.brand,
+  brandName: form.addBrandLater ? "" : form.brand,
   addBrandLater: form.addBrandLater || false,
 
   cartonBoxCharges: form.cartonBoxCharges || false,
@@ -184,7 +184,7 @@ const submitQuote = async () => {
   const quantityOptions = [300, 500, 1000];
    // Step 1 submit button should be disabled if status is not Pending or fields not filled
 const isSubmitDisabled =
-  (!form.addBrandLater && !form.brand) ||
+    (!form.addBrandLater && (!form.brand || form.brand.trim() === "")) ||
   (!form.molecule && !form.customMolecule) ||
   !form.qty ||
   !!quote?.status;// disable if any status exists

@@ -70,7 +70,7 @@ router.post('/quotes', async (req, res) => {
 
     const quote = new Quote({
       customerId,
-      brandName: addBrandLater ? null : brandName,
+      brandName: addBrandLater ? "" : brandName,
       addBrandLater,
       moleculeName,
       customMolecule,
