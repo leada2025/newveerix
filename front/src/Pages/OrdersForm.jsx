@@ -667,8 +667,13 @@ if (!open) return null;
       </p>
     </div>
 
-    {/* ✅ Show balance + invoice only when Final Payment Requested */}
-    {quote?.status === "Final Payment Requested" ? (
+    {/* ✅ Conditions for final payment stage */}
+    {quote?.status === "Paid" || quote?.finalPaid ? (
+      // ✅ Full Payment Done
+      <div className="p-4 bg-green-50 border border-green-200 rounded text-green-800">
+        ✅ Full payment received. Order complete.
+      </div>
+    ) : quote?.status === "Final Payment Requested" ? (
       <>
         {/* Balance card */}
         <div className="bg-white rounded-lg border border-slate-200 p-5 flex items-center justify-between mb-4">
@@ -779,14 +784,20 @@ if (!open) return null;
           )}
         </div>
       </>
+    ) : quote?.status === "Final Payment Submitted" && !quote?.finalPaid ? (
+      // 🕐 Final payment submitted but not yet verified
+      <div className="p-4 bg-yellow-50 border border-yellow-200 rounded text-yellow-800">
+        ✅ Payment submitted. We’ll verify your payment shortly.
+      </div>
     ) : (
-      // 👇 Shown when advance is paid, but final payment not requested yet
+      // 👇 Default message (after advance but before final request)
       <div className="p-4 bg-yellow-50 border border-yellow-200 rounded text-yellow-800">
         We’ll send you the final payment request soon.
       </div>
     )}
   </div>
 )}
+
 
 
         </div>
