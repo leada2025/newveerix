@@ -102,8 +102,8 @@ const ContactSupport = ({ customerId }) => {
             src="/images/wearehere.png"
             alt="Contact Support"
             style={{
-              width: "205px",
-              height: "105px",
+              width: "150px",
+              height: "100px",
               objectFit: "contain",
               filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.2))",
               cursor: "pointer",
@@ -126,7 +126,7 @@ const ContactSupport = ({ customerId }) => {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              marginTop: "10px",
+              // marginTop: "10px",
             }}
           >
             <FaCommentDots />

@@ -275,6 +275,7 @@ router.get("/customers", auth, authorize(["manage_users"]), async (req, res) => 
         companyName: u.companyName,
         GSTno: u.GSTno,
         active: u.active,
+          createdAt: u.createdAt,
       }));
 
     res.json(filtered);

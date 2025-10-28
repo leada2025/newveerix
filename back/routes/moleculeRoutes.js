@@ -15,19 +15,14 @@ router.get("/", async (req, res) => {
 });
 
 // ✅ Add new molecule (with optional amount)
-router.post("/", auth,authorize(["manage_quotes"]), async (req, res) => {
+router.post("/", auth, authorize(["manage_quotes"]), async (req, res) => {
   try {
-    const { name, amount } = req.body;
-
+    const { name } = req.body;
     if (!name || typeof name !== "string") {
       return res.status(400).json({ message: "Molecule name is required." });
     }
 
-    const newMol = new Molecule({
-      name: name.trim(),
-      amount: Number(amount) || 0, // ← gently handle missing amount
-    });
-
+    const newMol = new Molecule({ name: name.trim() });
     const saved = await newMol.save();
     res.status(201).json(saved);
   } catch (err) {
@@ -36,21 +31,20 @@ router.post("/", auth,authorize(["manage_quotes"]), async (req, res) => {
   }
 });
 
-// ✅ Update molecule name or amount
-router.patch("/:id", auth,authorize(["manage_quotes"]), async (req, res) => {
+router.patch("/:id", auth, authorize(["manage_quotes"]), async (req, res) => {
   try {
-    const updateData = {};
-
-    if (req.body.name) updateData.name = req.body.name.trim();
-    if (req.body.amount !== undefined) updateData.amount = Number(req.body.amount);
-
-    const updated = await Molecule.findByIdAndUpdate(req.params.id, updateData, { new: true });
+    const { name } = req.body;
+    const updated = await Molecule.findByIdAndUpdate(
+      req.params.id,
+      { name: name.trim() },
+      { new: true }
+    );
     res.json(updated);
   } catch (err) {
-    console.error("Update molecule error:", err);
     res.status(500).json({ message: "Update failed" });
   }
 });
+
 
 // ✅ Delete molecule
 router.delete("/:id",auth,authorize(["manage_quotes"]), async (req, res) => {

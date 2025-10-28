@@ -87,38 +87,47 @@ const fetchQuotes = async () => {
   try {
     setLoading(true);
     let url = "";
-    let body = {};
+    let data = {};
 
     if (action === "approve") {
       url = `/api/quotes/${id}/approve`;
-      body = { estimatedRate: Number(value) };
-    } else if (action === "payment") {
+      data = new FormData();
+      data.append("estimatedRate", value);
+      if (extra.file) data.append("document", extra.file);
+    } 
+    else if (action === "payment") {
       url = `/api/quotes/${id}/payment`;
-      body = {
-        amount: Number(value),
-        percentage: extra.percentage || 50, // ✅ include selected percentage
-      };
-    } else if (action === "paid") {
+      data = { amount: Number(value), percentage: extra.percentage || 50 };
+    } 
+    else if (action === "paid") {
       url = `/api/quotes/${id}/paid`;
-    } else if (action === "reject") {
+    } 
+    else if (action === "reject") {
       url = `/api/quotes/${id}/reject`;
-    } else if (action === "tracking") {
+    } 
+    else if (action === "tracking") {
       url = `/api/quotes/${id}/step`;
-      body = { trackingStep: value };
+      data = { trackingStep: value };
+    } 
+    else if (action === "finalPayment") {
+      url = `/api/quotes/${id}/request-final-payment`;
+      data = new FormData();
+      data.append("finalAmount", Number(value) || 0);
+      if (extra.file) data.append("invoice", extra.file); // Add invoice file
+    } 
+    else if (action === "finalPaid") {
+      url = `/api/quotes/${id}/finalPaid`;
+    } 
+    else if (action === "confirmAdvance") {
+      url = `/api/quotes/${id}/admin-confirm-advance`;
+      data = {};
     }
-else if (action === "finalPayment") {
-  url = `/api/quotes/${id}/request-final-payment`;
-  body = { finalAmount: Number(value) };
-}
-else if (action === "finalPaid") {
-  url = `/api/quotes/${id}/finalPaid`;
-}
-else if (action === "confirmAdvance") {
-  url = `/api/quotes/${id}/admin-confirm-advance`;
-  body = {}; // No additional body needed
-}
-    const res = await axios.patch(url, body, {
-      headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` },
+
+    const res = await axios.patch(url, data, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        ...(data instanceof FormData ? { "Content-Type": "multipart/form-data" } : {}),
+      },
     });
 
     setModalData(null);
@@ -130,7 +139,6 @@ else if (action === "confirmAdvance") {
     setLoading(false);
   }
 };
-
 // 👂 Listen for real-time quote updates
 useEffect(() => {
   // Ensure socket connection is active
@@ -179,6 +187,33 @@ const getActions = (quote) => {
   }
 };
 
+// ---- View or Download PDF Helper ----
+// ---- View or Download PDF Helper ----
+const handleViewPDF = async (url, name) => {
+  if (!url) return alert("No PDF available for this quote");
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("File not found");
+
+    const blob = await response.blob();
+    const fileUrl = window.URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = fileUrl;
+    link.download = name || "Quote.pdf";
+    document.body.appendChild(link);
+    link.click();
+
+    // Cleanup
+    link.remove();
+    window.URL.revokeObjectURL(fileUrl);
+  } catch (err) {
+    console.error("Error downloading PDF:", err);
+    alert("Unable to download the file. Please try again later.");
+  }
+};
+
 
 
 
@@ -201,14 +236,21 @@ const handleActionClick = (action, quote) => {
       performAction("paid", quote._id);
       break;
 
-    case "confirmAdvance":   // ✅ Added this
+    case "confirmAdvance":
       performAction("confirmAdvance", quote._id);
       break;
 
-case "finalPayment":
-  // Automatically request final payment, no modal
-  performAction("finalPayment", quote._id);
-  break;
+    case "finalPayment":
+      // Show popup for final payment amount
+      setModalData({ 
+        action: "finalPayment", 
+        quote, 
+        value: quote.finalAmount || quote.estimatedRate || "",
+        title: "Enter Final Payment Amount",
+        placeholder: "Enter final payment amount"
+      });
+      setInputValue(quote.finalAmount || quote.estimatedRate || "");
+      break;
 
     case "finalPaid":
       performAction("finalPaid", quote._id);
@@ -313,9 +355,11 @@ useEffect(() => {
           <th className="px-3 py-2 text-left w-32">Customer</th>
           <th className="px-3 py-2 text-left w-24">Brand</th>
           <th className="px-3 py-2 text-left w-36">Molecule</th>
+          <th className="px-3 py-2 text-left w-48">Additional Options</th>
+
           <th className="px-3 py-2 text-left w-20">Quantity</th>
           <th className="px-3 py-2 text-left w-20">Rate</th>
-          <th className="px-3 py-2 text-left w-24">Payment</th>
+          <th className="px-3 py-2 text-left w-24">Adv-Payment</th>
           <th className="px-3 py-2 text-left w-28">Status</th>
           <th className="px-3 py-2 text-left w-16">Chat</th>
           <th className="px-3 py-2 text-left w-32">Actions</th>
@@ -341,10 +385,36 @@ useEffect(() => {
   </span>
 </td>
 
+<td className="px-3 py-2 text-xs">
+  {[
+   
+    { key: "cartonBoxCharges", label: "Carton Box Charges" },
+    { key: "artworkCharges", label: "Artwork Charges" },
+    { key: "labelCharges", label: "Label Charges" },
+    { key: "cylinderCharges", label: "Cylinder Charges" },
+  ].filter(item => q[item.key] != null && q[item.key] > 0).length > 0 ? (
+    [
+      
+      { key: "cartonBoxCharges", label: "Carton Box Charges" },
+      { key: "artworkCharges", label: "Artwork Charges" },
+      { key: "labelCharges", label: "Label Charges" },
+      { key: "cylinderCharges", label: "Cylinder Charges" },
+    ]
+      .filter(item => q[item.key] != null && q[item.key] > 0)
+      .map(item => (
+        <div key={item.key}>
+          <span className="text-gray-500">{item.label}</span> {q[item.key]}
+        </div>
+      ))
+  ) : (
+    <div className="text-gray-500" >No additional charges</div>
+  )}
+</td>
 
             <td className="px-3 py-2">{q.quantity} {q.unit}</td>
             <td className="px-3 py-2">{q.estimatedRate ? `₹${q.estimatedRate}` : "-"}</td>
             <td className="px-3 py-2">{q.requestedAmount ? `₹${q.requestedAmount}` : "-"}</td>
+            
             <td className="px-3 py-2"><StatusBadge status={q.status} /></td>
             <td className="px-3 py-2">
               <button
@@ -356,27 +426,47 @@ useEffect(() => {
                 Chat
               </button>
             </td>
-            <td className="px-3 py-2">
-              <select
-                value=""
-                onChange={(e) => handleActionClick(e.target.value, q)}
-                className="border px-2 py-1 rounded text-xs w-full"
-              >
-                <option value="">Action</option>
-{getActions(q).map((a) => (
-  <option key={a} value={a}>
-    {a === "approve" && "Approve"}
-    {a === "reject" && "Reject"}
-    {a === "payment" && "Request Advance Payment"}
-    {a === "paid" && "Mark Advance Paid"}
-    {a === "finalPayment" && "Request Final Payment"}
-    {a === "finalPaid" && "Mark Final Paid"}
-    {a === "confirmAdvance" && "Confirm Advance Payment"}
-  </option>
-))}
+          <td className="px-3 py-2">
+  {/* Actions dropdown */}
+  <select
+    value=""
+    onChange={(e) => handleActionClick(e.target.value, q)}
+    className="border px-2 py-1 rounded text-xs w-full"
+  >
+    <option value="">Action</option>
+    {getActions(q).map((a) => (
+      <option key={a} value={a}>
+        {a === "approve" && "Approve"}
+        {a === "reject" && "Reject"}
+        {a === "payment" && "Request Advance Payment"}
+        {a === "paid" && "Mark Advance Paid"}
+        {a === "finalPayment" && "Request Final Payment"}
+        {a === "finalPaid" && "Mark Final Paid"}
+        {a === "confirmAdvance" && "Confirm Advance Payment"}
+      </option>
+    ))}
+  </select>
 
-              </select>
-            </td>
+  {/* Quote PDF button */}
+  {q.documentUrl && (
+    <button
+      onClick={() => handleViewPDF(q.documentUrl, q.documentName)}
+      className="mt-1 text-xs text-blue-600 underline hover:text-blue-800 block"
+    >
+      View Quote PDF
+    </button>
+  )}
+  
+  {/* Invoice PDF button */}
+  {q.invoiceUrl && (
+    <button
+      onClick={() => handleViewPDF(q.invoiceUrl, q.invoiceName || "Invoice.pdf")}
+      className="mt-1 text-xs text-green-600 underline hover:text-green-800 block"
+    >
+      View Invoice
+    </button>
+  )}
+</td>
    <td className="px-3 py-2">
               <select
                 value={q.trackingStep}
@@ -397,6 +487,7 @@ useEffect(() => {
 
       {/* Card View */}
  {/* Card View */}
+{/* ---- CARD VIEW ---- */}
 {view === "card" && (
   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
     {processedQuotes.map((q) => (
@@ -404,15 +495,64 @@ useEffect(() => {
         key={q._id}
         className="bg-white rounded-xl shadow p-4 border flex flex-col gap-3 hover:shadow-md transition"
       >
+        {/* Header */}
         <div className="flex justify-between items-start">
-          <h3 className="text-lg font-semibold">{q.customerId?.name}</h3>
+          <div>
+            <h3 className="text-lg font-semibold">{q.customerId?.name || "Customer"}</h3>
+            <p className="text-xs text-slate-500">{new Date(q.createdAt).toLocaleDateString()}</p>
+          </div>
           <StatusBadge status={q.status} />
         </div>
 
-        <p className="text-sm text-slate-500">{q.moleculeName || `Custom: ${q.customMolecule}`}</p>
-        <p className="text-sm">Qty: {q.quantity} {q.unit}</p>
-        <p className="text-sm">Rate: {q.estimatedRate ? `₹${q.estimatedRate}` : "-"}</p>
-        <p className="text-sm">Payment: {q.requestedAmount ? `₹${q.requestedAmount}` : "-"}</p>
+        {/* Quote Details */}
+        <div className="text-sm space-y-1">
+          <p>
+            <span className="font-medium text-slate-600">Brand:</span>{" "}
+            {q.brandName || "-"}
+          </p>
+          <p>
+            <span className="font-medium text-slate-600">Molecule:</span>{" "}
+            {q.moleculeName || `Custom: ${q.customMolecule}`}
+          </p>
+          <p>
+            <span className="font-medium text-slate-600">Quantity:</span>{" "}
+            {q.quantity} {q.unit}
+          </p>
+          <p>
+            <span className="font-medium text-slate-600">Rate:</span>{" "}
+            {q.estimatedRate ? `₹${q.estimatedRate}` : "-"}
+          </p>
+          <p>
+            <span className="font-medium text-slate-600">Payment:</span>{" "}
+            {q.requestedAmount ? `₹${q.requestedAmount}` : "-"}
+          </p>
+
+          {/* Additional Options */}
+          <div className="mt-2">
+            <span className="font-medium text-slate-600 block">Additional Options:</span>
+            {[
+              { key: "cartonBoxCharges", label: "Carton Box Charges" },
+              { key: "artworkCharges", label: "Artwork Charges" },
+              { key: "labelCharges", label: "Label Charges" },
+              { key: "cylinderCharges", label: "Cylinder Charges" },
+            ].filter(item => q[item.key] != null && q[item.key] > 0).length > 0 ? (
+              [
+                { key: "cartonBoxCharges", label: "Carton Box Charges" },
+                { key: "artworkCharges", label: "Artwork Charges" },
+                { key: "labelCharges", label: "Label Charges" },
+                { key: "cylinderCharges", label: "Cylinder Charges" },
+              ]
+                .filter(item => q[item.key] != null && q[item.key] > 0)
+                .map(item => (
+                  <p key={item.key} className="text-slate-500">
+                    {item.label}: {q[item.key]}
+                  </p>
+                ))
+            ) : (
+              <p className="text-slate-400">No additional charges</p>
+            )}
+          </div>
+        </div>
 
         {/* Chat Button */}
         <button
@@ -423,27 +563,76 @@ useEffect(() => {
               customerId: q.customerId?._id,
             })
           }
-          className="flex items-center gap-1 px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs"
-          title="Chat with Customer"
+          className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs mt-2"
         >
           <MessageSquare className="w-4 h-4" />
           Chat
         </button>
 
-        {/* Actions */}
-        <div className="flex flex-wrap gap-2 mt-2">
+        {/* ✅ Download PDF Button */}
+        {/* Quote PDF Button */}
+{q.documentUrl && (
+  <button
+    onClick={() => handleViewPDF(q.documentUrl, q.documentName)}
+    className="flex items-center justify-center gap-2 px-3 py-1 border border-blue-500 text-blue-600 rounded hover:bg-blue-50 text-xs mt-2"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+      className="w-4 h-4"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 16.5v-9m0 9l3-3m-3 3l-3-3m9 6a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0018.75 4.5H5.25A2.25 2.25 0 003 6.75v10.5A2.25 2.25 0 005.25 19.5h13.5z"
+      />
+    </svg>
+    <span>View Quote PDF</span>
+  </button>
+)}
+
+{/* Invoice PDF Button */}
+{q.invoiceUrl && (
+  <button
+    onClick={() => handleViewPDF(q.invoiceUrl, q.invoiceName || "Invoice.pdf")}
+    className="flex items-center justify-center gap-2 px-3 py-1 border border-green-500 text-green-600 rounded hover:bg-green-50 text-xs mt-2"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+      className="w-4 h-4"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 16.5v-9m0 9l3-3m-3 3l-3-3m9 6a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0018.75 4.5H5.25A2.25 2.25 0 003 6.75v10.5A2.25 2.25 0 005.25 19.5h13.5z"
+      />
+    </svg>
+    <span>View Invoice</span>
+  </button>
+)}
+        {/* Actions Dropdown */}
+        <div className="mt-2">
           <select
             value=""
             onChange={(e) => handleActionClick(e.target.value, q)}
-            className="border px-2 py-1 rounded text-sm"
+            className="border px-2 py-1 rounded text-sm w-full"
           >
             <option value="">Select Action</option>
-            {getActions(q.status).map((a) => (
+            {getActions(q).map((a) => (
               <option key={a} value={a}>
                 {a === "approve" && "Approve"}
                 {a === "reject" && "Reject"}
-                {a === "payment" && "Request Payment"}
-                {a === "paid" && "Mark Paid"}
+                {a === "payment" && "Request Advance Payment"}
+                {a === "paid" && "Mark Advance Paid"}
+                {a === "finalPayment" && "Request Final Payment"}
+                {a === "finalPaid" && "Mark Final Paid"}
                 {a === "confirmAdvance" && "Confirm Advance Payment"}
               </option>
             ))}
@@ -452,11 +641,11 @@ useEffect(() => {
 
         {/* Tracking Step */}
         <div className="mt-2">
-          <h4 className="text-sm font-semibold">Tracking Step:</h4>
+          <h4 className="text-sm font-semibold text-slate-700 mb-1">Tracking Step</h4>
           <select
             value={q.trackingStep}
             onChange={(e) => performAction("tracking", q._id, Number(e.target.value))}
-            className="w-full border px-2 py-1 rounded text-sm mt-1"
+            className="w-full border px-2 py-1 rounded text-sm"
           >
             {q.trackingSteps.map((step, index) => (
               <option key={index} value={index}>
@@ -465,7 +654,6 @@ useEffect(() => {
             ))}
           </select>
         </div>
-
       </div>
     ))}
   </div>
@@ -473,12 +661,12 @@ useEffect(() => {
 
 
       {/* Modal */}
-     {modalData && (
+ {modalData && (
   <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-50">
     <div className="bg-white rounded-xl shadow-lg w-96">
       <div className="px-6 py-4 border-b">
         <h2 className="text-lg font-semibold">
-          Enter Estimated Rate
+          {modalData.title || "Enter Estimated Rate"}
         </h2>
       </div>
       <div className="px-6 py-4">
@@ -486,9 +674,29 @@ useEffect(() => {
           type="number"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
-          className="w-full border rounded-lg px-3 py-2"
-          placeholder="Enter estimated rate"
+          className="w-full border rounded-lg px-3 py-2 mb-3"
+          placeholder={modalData.placeholder || "Enter estimated rate"}
         />
+        
+        {/* Show file upload for approve AND final payment actions */}
+        {(modalData.action === "approve" || modalData.action === "finalPayment") && (
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              {modalData.action === "approve" ? "Upload Quote PDF" : "Upload Invoice"}
+            </label>
+            <input
+              type="file"
+              accept="application/pdf"
+              onChange={(e) => setModalData(prev => ({ ...prev, file: e.target.files[0] }))}
+              className="w-full border rounded-lg px-3 py-2"
+            />
+            <p className="text-xs text-slate-500 mt-1">
+              {modalData.action === "approve" 
+                ? "Upload the quote document as PDF" 
+                : "Upload the final invoice as PDF"}
+            </p>
+          </div>
+        )}
       </div>
       <div className="px-6 py-3 flex justify-end gap-2 border-t">
         <button
@@ -498,9 +706,13 @@ useEffect(() => {
           Cancel
         </button>
         <button
-          onClick={() =>
-            performAction(modalData.action, modalData.quote._id, inputValue)
-          }
+          onClick={() => {
+            if (modalData.action === "finalPayment") {
+              performAction("finalPayment", modalData.quote._id, inputValue, { file: modalData.file });
+            } else {
+              performAction(modalData.action, modalData.quote._id, inputValue, { file: modalData.file });
+            }
+          }}
           disabled={!inputValue || loading}
           className={`px-3 py-1 rounded-lg text-sm ${
             !inputValue || loading

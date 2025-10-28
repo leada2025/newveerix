@@ -11,37 +11,49 @@ const PaymentSchema = new mongoose.Schema({
 const QuoteSchema = new mongoose.Schema(
   {
     customerId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-    brandName: String,
+
+    // brand info
+    brandName: { type: String, default: null },
+    addBrandLater: { type: Boolean, default: false }, // ✅ new field
+
     moleculeName: String,
     customMolecule: String,
     quantity: Number,
     unit: String,
 
-status: {
-  type: String,
-  enum: [
-    "Pending",
-    "Quote Sent",
-    "Approved Quote",
-    "Payment Requested",      // Advance requested
-    "Advance Paid",           // Customer paid advance
-    "Final Payment Requested",
-    "Final Payment Submitted", // Admin requested balance
-    "Paid",                   // Fully paid
-    "Rejected",
-  ],
-  default: "Pending",
-},
+    // ✅ NEW charge-related checkboxes
+    documentUrl: String,       // 🔥 add this
+  documentName: String, 
+   invoiceUrl: String,
+  invoiceName: String, 
+    cartonBoxCharges: { type: Boolean, default: false },
+    artworkCharges: { type: Boolean, default: false },
+    labelCharges: { type: Boolean, default: false },
+    cylinderCharges: { type: Boolean, default: false },
 
+    status: {
+      type: String,
+      enum: [
+        "Pending",
+        "Quote Sent",
+        "Approved Quote",
+        "Payment Requested",
+        "Advance Paid",
+        "Final Payment Requested",
+        "Final Payment Submitted",
+        "Paid",
+        "Rejected",
+      ],
+      default: "Pending",
+    },
 
     estimatedRate: Number,
-    requestedAmount: Number,       // advance requested
-    requestedPercentage: Number,   // advance percent
+    requestedAmount: Number,
+    requestedPercentage: Number,
 
-    // new fields
-    advancePaid: { type: Boolean, default: false }, // true once customer paid advance
-    finalAmount: Number,          // full amount requested at final stage (remaining or full)
-    balanceAmount: Number,        // finalAmount - (advance paid)
+    advancePaid: { type: Boolean, default: false },
+    finalAmount: Number,
+    balanceAmount: Number,
     payments: { type: [PaymentSchema], default: [] },
 
     // tracking
@@ -63,7 +75,6 @@ status: {
         "Delivered to Client",
       ],
     },
-
     trackingHistory: [
       {
         stepIndex: Number,
@@ -75,7 +86,8 @@ status: {
   { timestamps: true }
 );
 
-QuoteSchema.index({ customerId: 1, brandName: 1 }, { unique: true });
+// ✅ remove unique constraint, since brandName may be null
+QuoteSchema.index({ customerId: 1, brandName: 1 }, { unique: false });
 
 QuoteSchema.pre("save", function (next) {
   if (this.isModified("trackingStep")) {

@@ -157,42 +157,57 @@ useEffect(() => {
 
         <div className="grid grid-cols-12 gap-6">
           {/* Orders Table */}
-          <div className="col-span-7 bg-white p-4 rounded-2xl shadow-sm">
+          <div className="col-span-8 bg-white p-4 rounded-2xl shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="text-slate-500 text-xs border-b">
-                  <tr>
-                    <th className="text-left py-2">Date</th>
-                    <th className="text-left py-2">Order ID</th>
-                    <th className="text-left py-2">Brand / Client</th>
-                    <th className="text-left py-2">Qty</th>
-                    <th className="text-left py-2">Status</th>
-                    <th className="text-left py-2">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedOrders.map(o => (
-                    <tr key={o._id} className="hover:bg-slate-50 cursor-pointer" onClick={() => setSelectedOrder(o)}>
-                      <td className="py-3 text-xs text-slate-500">{o.createdAt ? new Date(o.createdAt).toLocaleDateString() : "-"}</td>
-                      <td className="py-3">{o._id}</td>
-                      <td className="py-3">{o.brandName} <div className="text-xs text-slate-400">{o.customerId?.name}</div></td>
-                      <td className="py-3">{o.quantity} {o.unit}</td>
-                      <td className="py-3"><Badge text={o.status} /></td>
-                      <td className="py-3 text-right">
-                        <div className="inline-flex items-center gap-2">
-                          
-                          <button className="p-2 rounded-md hover:bg-slate-100" onClick={() => handleEdit(o)}><Edit2 className="w-4 h-4"/></button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
+               <thead className="text-slate-500 text-xs border-b">
+  <tr>
+    <th className="text-left py-2 px-3">Date</th>
+    <th className="text-left py-2 px-3">Order ID</th>
+    <th className="text-left py-2 px-3">Brand Name</th>
+    <th className="text-left py-2 px-3">Molecule</th>
+    <th className="text-left py-2 px-3">Qty</th>
+    <th className="text-left py-2 px-3">Status</th>
+    <th className="text-left py-2 px-3">Actions</th>
+  </tr>
+</thead>
+<tbody>
+  {paginatedOrders.map(o => (
+    <tr
+      key={o._id}
+      className="hover:bg-slate-50 cursor-pointer"
+      onClick={() => setSelectedOrder(o)}
+    >
+      <td className="py-3 px-3 text-xs text-slate-500">
+        {o.createdAt ? new Date(o.createdAt).toLocaleDateString() : "-"}
+      </td>
+      <td className="py-3 px-3">{o._id}</td>
+      <td className="py-3 px-3 text-slate-500 italic">
+  {o.brandName || "Not-provided"}
+</td>
+      <td className="py-3 px-3">{o.moleculeName || o.customMolecule || "-"}</td>
+      <td className="py-3 px-3">{o.quantity} {o.unit}</td>
+      <td className="py-3 px-3"><Badge text={o.status} /></td>
+      <td className="py-3 px-3 text-right">
+        <div className="inline-flex items-center gap-2">
+          <button
+            className="p-2 rounded-md hover:bg-slate-100"
+            onClick={() => handleEdit(o)}
+          >
+            <Edit2 className="w-4 h-4" />
+          </button>
+        </div>
+      </td>
+    </tr>
+  ))}
+</tbody>
+
               </table>
             </div>
           </div>
 
           {/* Right: Order Details */}
-          <div className="col-span-5 bg-white p-4 rounded-2xl shadow-sm h-[70vh] overflow-y-auto">
+          <div className="col-span-4 bg-white p-4 rounded-2xl shadow-sm h-[70vh] overflow-y-auto">
             {selectedOrder ? (
               <div>
                 <div className="flex items-start justify-between mb-4">

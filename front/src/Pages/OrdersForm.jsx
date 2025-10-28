@@ -129,7 +129,10 @@ const submitQuote = async () => {
   try {
     const user = JSON.parse(localStorage.getItem('user'));
     const existingRes = await axios.get(`/api/quotes/customer/${user._id}`);
-    const existingBrandNames = existingRes.data.map(q => q.brandName.toLowerCase());
+  const existingBrandNames = existingRes.data
+  .map(q => (q.brandName ? q.brandName.toLowerCase() : ""))
+  .filter(Boolean); // remove empty ones
+
 
     if (existingBrandNames.includes(form.brand.toLowerCase())) {
       alert("You have already submitted a quote for this brand name.");
@@ -137,14 +140,21 @@ const submitQuote = async () => {
     }
 
     // Submit the new quote
-    const payload = {
-      customerId: user._id,
-      moleculeName: form.molecule,
-      customMolecule: form.customMolecule,
-      quantity: form.qty,
-      unit: form.unit,
-      brandName: form.brand,
-    };
+ const payload = {
+  customerId: user._id,
+  moleculeName: form.molecule,
+  customMolecule: form.customMolecule,
+  quantity: form.qty,
+  unit: form.unit,
+  brandName: form.brand,
+  addBrandLater: form.addBrandLater || false,
+
+  cartonBoxCharges: form.cartonBoxCharges || false,
+  artworkCharges: form.artworkCharges || false,
+  labelCharges: form.labelCharges || false,
+  cylinderCharges: form.cylinderCharges || false,
+};
+
 
     const res = await axios.post('/api/quotes', payload);
     onCreate(res.data);
@@ -174,10 +184,10 @@ const submitQuote = async () => {
   const quantityOptions = [300, 500, 1000];
    // Step 1 submit button should be disabled if status is not Pending or fields not filled
 const isSubmitDisabled =
-  !form.brand ||
+  (!form.addBrandLater && !form.brand) ||
   (!form.molecule && !form.customMolecule) ||
   !form.qty ||
-  !!quote?.status; // disable if any status exists
+  !!quote?.status;// disable if any status exists
 
 const isFormDisabled = !!quote?.status; 
 
@@ -289,19 +299,34 @@ if (!open) return null;
         {/* Step Content */}
         <div className="bg-slate-50 p-4 rounded-lg mb-4">
           {/* Step 1 */}
-         {step === 1 && (
-  <div className="grid grid-cols-2 gap-4">
+   {step === 1 && (
+  <div className="grid grid-cols-2 gap-3">
+    {/* Brand Name & Add Brand Later */}
     <div>
       <label className="text-xs text-slate-500">Brand Name</label>
       <input
         type="text"
         value={form.brand}
         onChange={e => setForm({ ...form, brand: e.target.value })}
-        disabled={isFormDisabled}
+        disabled={isFormDisabled || form.addBrandLater}
         className="mt-1 p-2 border rounded-lg w-full disabled:bg-slate-100"
         placeholder="Enter Brand Name"
       />
+      <div className="flex items-center gap-2 mt-2">
+        <input
+          type="checkbox"
+          id="addBrandLater"
+          checked={form.addBrandLater || false}
+          onChange={e => setForm({ ...form, addBrandLater: e.target.checked })}
+          disabled={isFormDisabled}
+        />
+        <label htmlFor="addBrandLater" className="text-xs text-slate-600">
+          Add BrandName Later
+        </label>
+      </div>
     </div>
+
+    {/* Molecule dropdown */}
     <div>
       <label className="text-xs text-slate-500">Molecule</label>
       <select
@@ -316,6 +341,8 @@ if (!open) return null;
         ))}
       </select>
     </div>
+
+    {/* Custom Molecule */}
     <div>
       <label className="text-xs text-slate-500">Or Custom Molecule</label>
       <input
@@ -326,6 +353,8 @@ if (!open) return null;
         placeholder="Custom molecule"
       />
     </div>
+
+    {/* Quantity */}
     <div>
       <label className="text-xs text-slate-500">Quantity</label>
       <select
@@ -340,6 +369,8 @@ if (!open) return null;
         ))}
       </select>
     </div>
+
+    {/* Unit */}
     <div>
       <label className="text-xs text-slate-500">Unit</label>
       <select
@@ -354,73 +385,158 @@ if (!open) return null;
       </select>
     </div>
 
-    <div className="col-span-2 flex justify-end mt-3">
+    {/* Cost Checkboxes (full width) */}
+    <div className="col-span-2 mt-3">
+      <label className="text-xs text-slate-500">Additional Charges</label>
+      <div className="grid grid-cols-2 gap-2 mt-2">
+        {[
+       
+          { key: "cartonBoxCharges", label: "Carton Box Charges" },
+          { key: "artworkCharges", label: "Artwork Charges" },
+          { key: "labelCharges", label: "Label Charges" },
+          { key: "cylinderCharges", label: "Cylinder Charges" },
+        ].map(({ key, label }) => (
+          <label key={key} className="flex items-center gap-2 text-xs text-slate-600">
+            <input
+              type="checkbox"
+              checked={form[key] || false}
+              onChange={e => setForm({ ...form, [key]: e.target.checked })}
+              disabled={isFormDisabled}
+            />
+            {label}
+          </label>
+        ))}
+      </div>
+    </div>
+
+    {/* Submit button */}
+    <div className="col-span-2 flex justify-end mt-4">
       <button
         onClick={submitQuote}
-        disabled={isSubmitDisabled  || quoteLimitReached}
+        disabled={isSubmitDisabled || quoteLimitReached}
         className="px-4 py-2 rounded-lg bg-emerald-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
       >
         Submit Request
       </button>
+    
     </div>
+      {quoteLimitReached && ( <p className="text-red-500 text-sm mt-2"> You have reached the maximum of 5 active quotes. </p> )}
   </div>
 )}
-{quoteLimitReached && (
-  <p className="text-red-500 text-sm mt-2">
-    You have reached the maximum of 5 active quotes.
-  </p>
-)}
+
           {/* Step 2 */}
 {step === 2 && (
   <div>
     <div className="text-sm font-medium mb-2">Quote Approval</div>
 
-    <div className="p-4 bg-white rounded-lg border">
-      <p className="text-sm text-slate-600">Estimated Rate:</p>
-      <p className="text-xl font-bold text-emerald-600">
-  {quote?.estimatedRate ? (
-    <>
-      ₹ {quote.estimatedRate}
-      <span className="font-normal text-sm text-slate-700">
-        {" "}
-        for {quote.quantity} {quote.unit || "units"}
-      </span>
-    </>
-  ) : (
-    <span className="font-normal text-slate-600">
-      Please wait, we will send you a quote soon...
-    </span>
-  )}
-</p>
+    {/* Quote Card */}
+    <div className="bg-white rounded-lg border border-slate-200 p-5 flex items-center justify-between">
+      <div>
+        <p className="text-sm text-slate-600 mb-1">Estimated Rate:</p>
+        {quote?.estimatedRate ? (
+          <p className="text-2xl font-bold text-emerald-600">
+            ₹ {quote.estimatedRate.toLocaleString()}{" "}
+            <span className="text-sm font-normal text-slate-700">
+              for {quote.quantity} {quote.unit || "units"}
+            </span>
+          </p>
+        ) : (
+          <p className="text-slate-600 text-sm">
+            Please wait, we will send you a quote soon...
+          </p>
+        )}
+      </div>
+
+      {/* ✅ Download Document */}
+      {quote?.documentUrl && (
+  <button
+    onClick={async () => {
+      try {
+        const response = await fetch(quote.documentUrl);
+        if (!response.ok) throw new Error("File not found");
+
+        // Convert to Blob
+        const blob = await response.blob();
+
+        // Create object URL
+        const url = window.URL.createObjectURL(blob);
+
+        // Create a temporary link to force download
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = quote.documentName || "Quote.pdf";
+        document.body.appendChild(link);
+        link.click();
+
+        // Clean up
+        link.remove();
+        window.URL.revokeObjectURL(url);
+      } catch (error) {
+        console.error("Download failed:", error);
+        alert("Unable to download the file. Please try again later.");
+      }
+    }}
+    className="flex items-center gap-2 text-slate-600 hover:text-emerald-600 transition-colors border border-slate-200 rounded-lg px-4 py-2"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+      className="w-5 h-5"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 16.5v-9m0 9l3-3m-3 3l-3-3m9 6a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0018.75 4.5H5.25A2.25 2.25 0 003 6.75v10.5A2.25 2.25 0 005.25 19.5h13.5z"
+      />
+    </svg>
+    <span className="text-sm font-medium">Download PDF</span>
+  </button>
+)}
 
     </div>
 
-    <div className="mt-4 flex flex-col gap-3">
-      <div className="flex gap-2">
-        <button
-          onClick={() => setShowConfirm(true)}
-          disabled={quote?.status !== 'Quote Sent'}
-          className={`px-4 py-2 rounded-lg bg-emerald-600 text-white
-            ${quote?.status !== 'Quote Sent' ? 'opacity-50 cursor-not-allowed' : ''}`}
-        >
-          {quote?.status === 'Approved Quote' ? 'Quote Approved' : 'Accept Quote'}
-        </button>
+    {/* Buttons */}
+    <div className="mt-5 flex gap-3">
+      <button
+        onClick={() => setShowConfirm(true)}
+        disabled={quote?.status !== "Quote Sent"}
+        className={`px-6 py-2 rounded-lg text-white font-medium transition
+          ${
+            quote?.status !== "Quote Sent"
+              ? "bg-emerald-300 cursor-not-allowed"
+              : "bg-emerald-600 hover:bg-emerald-700"
+          }`}
+      >
+        {quote?.status === "Approved Quote" ? "Quote Approved" : "Accept Quote"}
+      </button>
 
-     <button
-          onClick={() =>
-    onOpenChat(quote?._id, quote?.customerId?._id)
-  }
-          className="px-4 py-2 rounded-lg bg-emerald-600 text-white"
-          title="Chat with Admin"
+      <button
+        onClick={() => onOpenChat(quote?._id, quote?.customerId?._id)}
+        className="px-6 py-2 rounded-lg bg-emerald-600 text-white flex items-center gap-2 hover:bg-emerald-700 transition"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={1.5}
+          stroke="currentColor"
+          className="w-5 h-5"
         >
-         <span className="text-sm font-medium text-white">Request Changes</span><MessageSquare className="w-5 h-5" />
-        </button>
-      </div>
-
-   
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M7.5 8.25h9m-9 3h6m-7.125 8.25L3 20.25V5.25A2.25 2.25 0 015.25 3h13.5A2.25 2.25 0 0121 5.25v10.5A2.25 2.25 0 0118.75 18H8.25L6.375 19.5z"
+          />
+        </svg>
+        <span className="text-sm font-medium">Request Changes</span>
+      </button>
     </div>
   </div>
 )}
+
 
           {/* Step 3 */}
         {/* Step 3 */}
@@ -538,70 +654,137 @@ if (!open) return null;
 
 
           {/* Step 4 */}
- {step === 4 && (
+ {/* Step 4 */}
+{step === 4 && (
   <div>
     <div className="text-sm font-medium mb-2">Payment</div>
 
     {/* Advance success banner */}
     <div className="p-4 bg-green-50 rounded border border-green-100 mb-3">
       <p className="font-medium text-green-700">✅ Advance payment completed.</p>
-      <p className="text-sm text-slate-600">Thank you — your advance has been received.</p>
+      <p className="text-sm text-slate-600">
+        Thank you — your advance has been received.
+      </p>
     </div>
 
-    {/* Balance card */}
-    <div className="p-4 bg-white rounded border">
-      <div className="flex justify-between items-center mb-2">
-        <div className="text-sm text-slate-700">Remaining Balance</div>
-        <div className="text-lg font-bold text-emerald-600">
-          ₹ {quote?.balanceAmount ?? (quote?.finalAmount ? (quote.finalAmount - (quote.payments?.reduce((s,p)=>s+(p.amount||0),0) || 0)) : '—')}
-        </div>
-      </div>
-
-      {/* If admin requested final payment -> enable pay button */}
-      {quote?.status === 'Final Payment Requested' && !quote?.finalPaid ? (
-        <div className="mt-3 flex gap-3 items-center">
-          <button
-            onClick={async () => {
-              try {
-                const token = localStorage.getItem("authToken");
-                const amount = quote.balanceAmount ?? (quote.finalAmount - (quote.payments?.reduce((s,p)=>s+(p.amount||0),0) || 0));
-                const res = await axios.patch(`/api/quotes/${quote._id}/customer-final-payment`, {
-                  amount,
-                  method: "UPI",
-                  transactionId: "TXN_FINAL_" + Date.now()
-                }, { headers: { Authorization: `Bearer ${token}` } });
-
-                // update local quote
-                setQuote(res.data);
-                alert("Final payment submitted! Awaiting admin verification.");
-              } catch (err) {
-                console.error("Final payment error", err);
-                alert(err?.response?.data?.message || "Final payment failed");
-              }
-            }}
-            className="px-4 py-2 rounded bg-emerald-600 text-white"
-          >
-            Pay Final Amount
-          </button>
-
-          <div className="text-sm text-slate-500">
-            or contact support if you need another payment method.
+    {/* ✅ Show balance + invoice only when Final Payment Requested */}
+    {quote?.status === "Final Payment Requested" ? (
+      <>
+        {/* Balance card */}
+        <div className="bg-white rounded-lg border border-slate-200 p-5 flex items-center justify-between mb-4">
+          <div>
+            <p className="text-sm text-slate-600 mb-1">Remaining Balance:</p>
+            <div className="text-2xl font-bold text-emerald-600">
+              ₹ {quote?.balanceAmount?.toLocaleString() || "0"}
+            </div>
+            {quote?.finalAmount && (
+              <p className="text-sm text-slate-500 mt-1">
+                Total Amount: ₹ {quote.finalAmount.toLocaleString()}
+              </p>
+            )}
           </div>
+
+          {/* ✅ Download Invoice */}
+          {quote?.invoiceUrl && (
+            <button
+              onClick={async () => {
+                try {
+                  const response = await fetch(quote.invoiceUrl);
+                  if (!response.ok) throw new Error("File not found");
+
+                  const blob = await response.blob();
+                  const url = window.URL.createObjectURL(blob);
+                  const link = document.createElement("a");
+                  link.href = url;
+                  link.download = quote.invoiceName || "Invoice.pdf";
+                  document.body.appendChild(link);
+                  link.click();
+                  link.remove();
+                  window.URL.revokeObjectURL(url);
+                } catch (error) {
+                  console.error("Download failed:", error);
+                  alert("Unable to download the invoice. Please try again later.");
+                }
+              }}
+              className="flex items-center gap-2 text-slate-600 hover:text-emerald-600 transition-colors border border-slate-200 rounded-lg px-4 py-2"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+                className="w-5 h-5"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 16.5v-9m0 9l3-3m-3 3l-3-3m9 6a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0018.75 4.5H5.25A2.25 2.25 0 003 6.75v10.5A2.25 2.25 0 005.25 19.5h13.5z"
+                />
+              </svg>
+              <span className="text-sm font-medium">Download Invoice</span>
+            </button>
+          )}
         </div>
-      ) : quote?.status === 'Final Payment Submitted' && !quote?.finalPaid ? (
-        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded text-yellow-800">
-          ✅ Payment submitted. We will verify your payment shortly.
+
+        {/* Payment Action */}
+        <div className="p-4 bg-white rounded border">
+          <div className="flex justify-between items-center mb-2">
+            <div className="text-sm text-slate-700">Remaining Balance</div>
+            <div className="text-lg font-bold text-emerald-600">
+              ₹ {quote?.balanceAmount?.toLocaleString() || "0"}
+            </div>
+          </div>
+
+          {/* Pay Final Amount Button */}
+          {!quote?.finalPaid && (
+            <div className="mt-3 flex gap-3 items-center">
+              <button
+                onClick={async () => {
+                  try {
+                    const token = localStorage.getItem("authToken");
+                    const amount =
+                      quote.balanceAmount ??
+                      (quote.finalAmount -
+                        (quote.payments?.reduce(
+                          (s, p) => s + (p.amount || 0),
+                          0
+                        ) || 0));
+                    const res = await axios.patch(
+                      `/api/quotes/${quote._id}/customer-final-payment`,
+                      {
+                        amount,
+                        method: "UPI",
+                        transactionId: "TXN_FINAL_" + Date.now(),
+                      },
+                      { headers: { Authorization: `Bearer ${token}` } }
+                    );
+
+                    setQuote(res.data);
+                    alert("Final payment submitted! Awaiting admin verification.");
+                  } catch (err) {
+                    console.error("Final payment error", err);
+                    alert(err?.response?.data?.message || "Final payment failed");
+                  }
+                }}
+                className="px-4 py-2 rounded bg-emerald-600 text-white"
+              >
+                Pay Final Amount
+              </button>
+
+              <div className="text-sm text-slate-500">
+                or contact support if you need another payment method.
+              </div>
+            </div>
+          )}
         </div>
-      ) : quote?.status === 'Paid' || quote?.finalPaid ? (
-        <div className="p-3 bg-green-50 rounded text-green-800">
-          ✅ Full payment received. Order complete.
-        </div>
-      ) : (
-        <div className="p-3 bg-yellow-50 rounded text-yellow-800">
-          Waiting for admin to request final payment...
-        </div>
-      )}
-    </div>
+      </>
+    ) : (
+      // 👇 Shown when advance is paid, but final payment not requested yet
+      <div className="p-4 bg-yellow-50 border border-yellow-200 rounded text-yellow-800">
+        We’ll send you the final payment request soon.
+      </div>
+    )}
   </div>
 )}
 

@@ -1,8 +1,7 @@
 const mongoose = require("mongoose");
 
 const MoleculeSchema = new mongoose.Schema({
-  name: { type: String, required: true, unique: true },
-  amount: { type: Number, default: 0 }, // 💰 fixed quote price
-});
+  name: { type: String, required: true, unique: true, trim: true },
+}, { timestamps: true });
 
 module.exports = mongoose.model("Molecule", MoleculeSchema);

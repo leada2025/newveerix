@@ -38,12 +38,12 @@ const bellRef = useRef(null);
         message = `${change.message} (Brand: ${quote.brandName})`;
       } else {
         const statusText = {
-          Pending: `Your request for ${quote.brandName} has been submitted.`,
-          "Quote Sent": `A new quote for ${quote.brandName} has been sent by the admin.`,
-          "Approved Quote": `Your quote for ${quote.brandName} has been approved!`,
-          "Payment Requested": `Payment has been requested for ${quote.brandName}.`,
-          Paid: `Your payment for ${quote.brandName} has been confirmed.`,
-          Rejected: `Your quote for ${quote.brandName} has been rejected.`,
+          Pending: `Your request for ${quote.brandName || quote.moleculeName || quote.customMolecule } has been submitted.`,
+          "Quote Sent": `A new quote for ${quote.brandName || quote.moleculeName || quote.customMolecule } has been sent by the admin.`,
+          "Approved Quote": `Your quote for ${quote.brandName || quote.moleculeName || quote.customMolecule } has been approved!`,
+          "Payment Requested": `Payment has been requested for ${quote.brandName || quote.moleculeName || quote.customMolecule }.`,
+          Paid: `Your payment for ${quote.brandName || quote.moleculeName || quote.customMolecule } has been confirmed.`,
+          Rejected: `Your quote for ${quote.brandName || quote.moleculeName || quote.customMolecule } has been rejected.`,
         };
         message =
           statusText[quote.status] ||

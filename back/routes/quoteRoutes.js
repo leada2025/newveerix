@@ -7,6 +7,8 @@ const auth = require("../middleware/auth");
 const authorize = require("../middleware/authorize");
 const Notification = require("../models/Notification");
 // ---------- Helper: Emit update ----------
+const { upload } = require("../utils/cloudinary");
+
 const emitQuoteUpdate = async(quote, change = {}) => {
   if (!quote?.customerId) return;
   const io = socket.getIO();
@@ -34,31 +36,59 @@ const emitQuoteUpdate = async(quote, change = {}) => {
 };
 
 // ---------- Create quote (Customer) ----------
+// ---------- Create quote (Customer) ----------
 router.post('/quotes', async (req, res) => {
   try {
-    const { customerId, brandName, moleculeName, customMolecule, quantity, unit } = req.body;
+    const {
+      customerId,
+      brandName,
+      moleculeName,
+      customMolecule,
+      quantity,
+      unit,
+      addBrandLater,
+    cartonBoxCharges,
+      artworkCharges,
+      labelCharges,
+      cylinderCharges
+    } = req.body;
 
-    // Count quotes that are NOT Paid or Rejected
+    // ✅ Validate brand name rule
+    if (!addBrandLater && (!brandName || brandName.trim() === "")) {
+      return res.status(400).json({ message: "Brand name is required unless 'Add Brand Later' is checked." });
+    }
+
+    // ✅ Limit active quotes
     const activeCount = await Quote.countDocuments({
       customerId,
-      status: { $nin: ['Paid', 'Rejected'] } // only active quotes
+      status: { $nin: ["Paid", "Rejected"] },
     });
 
     if (activeCount >= 5) {
       return res.status(400).json({ message: "You can submit a maximum of 5 active quotes." });
     }
 
-    const quote = new Quote({ customerId, brandName, moleculeName, customMolecule, quantity, unit });
-    await quote.save();
+    const quote = new Quote({
+      customerId,
+      brandName: addBrandLater ? null : brandName,
+      addBrandLater,
+      moleculeName,
+      customMolecule,
+      quantity,
+      unit,
+   cartonBoxCharges,
+      artworkCharges,
+      labelCharges,
+      cylinderCharges
+    });
 
-    const populatedQuote = await quote.populate('customerId', 'name');
+    await quote.save();
+    const populatedQuote = await quote.populate("customerId", "name");
     emitQuoteUpdate(populatedQuote);
     res.json(populatedQuote);
 
   } catch (err) {
-    if (err.code === 11000) {
-      return res.status(400).json({ message: "You have already submitted a quote for this brand name." });
-    }
+    console.error(err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -69,32 +99,48 @@ router.post('/quotes', async (req, res) => {
 // ---------- Approve quote (Admin) ----------
 // ---------- Approve / Send Quote (Admin) ----------
 // Approve / Send Quote (Admin) - allow editing unless finalized
-router.patch('/quotes/:id/approve', auth, authorize(["manage_quotes"]), async (req, res) => {
-  try {
-    const quote = await Quote.findById(req.params.id).populate('customerId', 'name');
-    if (!quote) return res.status(404).json({ message: "Quote not found" });
+router.patch(
+  "/quotes/:id/approve",
+  auth,
+  authorize(["manage_quotes"]),
+  upload.single("document"),
+  async (req, res) => {
+    try {
+      const quote = await Quote.findById(req.params.id).populate("customerId", "name");
+      if (!quote) return res.status(404).json({ message: "Quote not found" });
 
-    if (['Paid', 'Rejected'].includes(quote.status)) {
-      return res.status(400).json({ message: "Cannot modify a finalized quote" });
+      if (["Paid", "Rejected"].includes(quote.status)) {
+        return res.status(400).json({ message: "Cannot modify a finalized quote" });
+      }
+
+      quote.status = "Quote Sent";
+      quote.estimatedRate = req.body.estimatedRate ?? quote.estimatedRate;
+      quote.quantity = req.body.quantity ?? quote.quantity;
+      quote.unit = req.body.unit ?? quote.unit;
+      quote.brandName = req.body.brandName ?? quote.brandName;
+      quote.moleculeName = req.body.moleculeName ?? quote.moleculeName;
+      quote.customMolecule = req.body.customMolecule ?? quote.customMolecule;
+
+      if (req.file && req.file.path) {
+        quote.documentUrl = req.file.path;
+        quote.documentName = req.file.originalname;
+      }
+
+      await quote.save();
+
+      const populatedQuote = await quote.populate("customerId", "name");
+
+      // ✅ Emit socket event safely
+      const io = socket.getIO();
+      io.emit("quote_updated", { quote: populatedQuote, message: "Admin updated and sent quote" });
+
+      res.json(populatedQuote);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: err.message });
     }
-
-    quote.status = 'Quote Sent';
-    quote.estimatedRate = req.body.estimatedRate ?? quote.estimatedRate;
-    quote.quantity = req.body.quantity ?? quote.quantity;
-    quote.unit = req.body.unit ?? quote.unit;
-    quote.brandName = req.body.brandName ?? quote.brandName;
-    quote.moleculeName = req.body.moleculeName ?? quote.moleculeName;
-    quote.customMolecule = req.body.customMolecule ?? quote.customMolecule;
-
-    await quote.save();
-    const populatedQuote = await quote.populate('customerId', 'name');
-    emitQuoteUpdate(populatedQuote, { message: "Admin updated and sent quote" });
-    res.json(populatedQuote);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
   }
-});
-
+);
 
 // ---------- Customer approves quote ----------
 router.patch('/quotes/:id/approve-customer', async (req, res) => {
@@ -278,7 +324,12 @@ router.patch("/quotes/:id/customer-final-payment", async (req, res) => {
 });
 
 // ---------- Admin Requests Final Payment ----------
-router.patch("/quotes/:id/request-final-payment", auth, authorize(["manage_quotes"]), async (req, res) => {
+// ---------- Admin Requests Final Payment ----------
+router.patch("/quotes/:id/request-final-payment", 
+  auth, 
+  authorize(["manage_quotes"]), 
+  upload.fields([{ name: 'invoice', maxCount: 1 }]), // Add this line
+  async (req, res) => {
   try {
     const { finalAmount } = req.body;
     const quote = await Quote.findById(req.params.id).populate("customerId", "name");
@@ -287,27 +338,32 @@ router.patch("/quotes/:id/request-final-payment", auth, authorize(["manage_quote
     if (!quote.advancePaid)
       return res.status(400).json({ message: "Advance must be paid before requesting final payment." });
 
-    const computedFinalAmount = finalAmount ?? quote.estimatedRate ?? 0;
-    const advancePaidAmount = quote.payments.reduce((s, p) => s + (p.amount || 0), 0);
-    const balance = computedFinalAmount - advancePaidAmount;
+    // Use the manually entered finalAmount directly without any calculations
+    const manualFinalAmount = Number(finalAmount) || 0;
 
-    quote.finalAmount = computedFinalAmount;
-    quote.balanceAmount = Math.max(balance, 0);
+    // Set the values directly without any validations or calculations
+    quote.finalAmount = manualFinalAmount;
+    quote.balanceAmount = manualFinalAmount; // Set balance to the manual amount
     quote.status = "Final Payment Requested";
- // ✅ step for “Final Payment Requested”
+
+    // Handle invoice file upload if provided
+    if (req.files && req.files.invoice) {
+      const invoiceFile = req.files.invoice[0];
+      quote.invoiceUrl = invoiceFile.path;
+      quote.invoiceName = invoiceFile.originalname;
+    }
 
     await quote.save();
 
     const populatedQuote = await quote.populate("customerId", "name");
-    emitQuoteUpdate(populatedQuote, { message: `Final payment requested: ₹${quote.balanceAmount}` });
+    emitQuoteUpdate(populatedQuote, { 
+      message: `Final payment requested: ₹${manualFinalAmount}` 
+    });
     res.json(populatedQuote);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
-
-
-
 // ---------- Mark Paid (Admin) ----------
 router.patch('/quotes/:id/finalPaid',auth, authorize(["manage_quotes"]), async (req, res) => {
   try {
