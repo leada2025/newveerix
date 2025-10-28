@@ -22,7 +22,7 @@ export default function CustomerManagement() {
 
   // ✅ Pagination states
   const [page, setPage] = useState(1);
-  const [perPage] = useState(5);
+  const [perPage] = useState(10);
 
   const token = localStorage.getItem("authToken");
 
