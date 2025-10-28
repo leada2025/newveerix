@@ -90,10 +90,6 @@ const QuoteSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-QuoteSchema.index(
-  { customerId: 1, brandName: 1 },
-  { unique: true, sparse: true }
-);
 
 QuoteSchema.pre("save", function (next) {
   if (this.isModified("trackingStep")) {
