@@ -86,10 +86,9 @@ const QuoteSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ✅ remove unique constraint, since brandName may be null
 QuoteSchema.index(
   { customerId: 1, brandName: 1 },
-  { unique: true, partialFilterExpression: { brandName: { $type: "string" } } }
+  { unique: true, sparse: true }
 );
 
 QuoteSchema.pre("save", function (next) {
