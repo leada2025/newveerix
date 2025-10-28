@@ -182,9 +182,10 @@ useEffect(() => {
         {o.createdAt ? new Date(o.createdAt).toLocaleDateString() : "-"}
       </td>
       <td className="py-3 px-3">{o._id}</td>
-      <td className="py-3 px-3 text-slate-500 italic">
-  {o.brandName || "Not-provided"}
+<td className="py-3 px-3 text-slate-500 italic">
+  {(!o.brandName || o.brandName.startsWith("__temp_")) ? "Not provided" : o.brandName}
 </td>
+
       <td className="py-3 px-3">{o.moleculeName || o.customMolecule || "-"}</td>
       <td className="py-3 px-3">{o.quantity} {o.unit}</td>
       <td className="py-3 px-3"><Badge text={o.status} /></td>
@@ -213,7 +214,11 @@ useEffect(() => {
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <div className="text-xs text-slate-500">Order</div>
-                    <div className="text-lg font-semibold">{selectedOrder._id} · {selectedOrder.brandName}</div>
+                    <div className="text-lg font-semibold">
+  {selectedOrder._id} · {(!selectedOrder.brandName || selectedOrder.brandName.startsWith("__temp_"))
+    ? "Not provided"
+    : selectedOrder.brandName}
+</div>
                     <div className="text-sm text-slate-500">{selectedOrder.customerId?.name} · {selectedOrder.quantity} {selectedOrder.unit}</div>
                     <div className="text-xs text-slate-400 mt-1">
                       Created: {selectedOrder.createdAt ? new Date(selectedOrder.createdAt).toLocaleString() : "-"}

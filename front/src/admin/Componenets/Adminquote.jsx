@@ -374,7 +374,7 @@ useEffect(() => {
               {q.customerId?.name || "Customer"}
             </td>
             <td className="px-3 py-2 truncate max-w-[100px]" title={q.brandName}>
-              {q.brandName || "-"}
+                {(!q.brandName || q.brandName.startsWith("__temp_")) ? "Not provided" : q.brandName}
             </td>
 
 
@@ -508,7 +508,7 @@ useEffect(() => {
         <div className="text-sm space-y-1">
           <p>
             <span className="font-medium text-slate-600">Brand:</span>{" "}
-            {q.brandName || "-"}
+           {(!q.brandName || q.brandName.startsWith("__temp_")) ? "Not provided" : q.brandName}
           </p>
           <p>
             <span className="font-medium text-slate-600">Molecule:</span>{" "}
