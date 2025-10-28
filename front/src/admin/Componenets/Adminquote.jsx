@@ -285,7 +285,7 @@ useEffect(() => {
 }, [location.search]);
 
   return (
-    <div className="p-6 bg-slate-50 min-h-screen">
+    <div className="p-1 bg-slate-50 min-h-screen">
       <h1 className="text-2xl font-bold text-slate-800 mb-4">Quotes Management</h1>
 
       {/* Toolbar */}
