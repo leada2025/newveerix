@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "../../api/Axios";
-import { Pencil, Trash2, Plus, Eye, EyeOff, Search } from "lucide-react";
+import { Pencil, Trash2, Plus, Eye, EyeOff, Search, ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function CustomerManagement() {
   const [customers, setCustomers] = useState([]);
@@ -24,7 +24,8 @@ export default function CustomerManagement() {
 
   // ✅ Pagination states
   const [page, setPage] = useState(1);
-  const [perPage] = useState(10);
+  const [perPage, setPerPage] = useState(10);
+  const [perPageOptions] = useState([10, 20, 50.,100]);
 
   const token = localStorage.getItem("authToken");
 
@@ -73,52 +74,52 @@ export default function CustomerManagement() {
   };
 
   const handleAddOrEdit = async () => {
-  try {
-    const payload = {
-      name: form.name,
-      email: form.email,
-      password: form.password,
-      companyName: form.company,
-      city: form.city,
-      GSTno: form.gst,
-      role: "customer",
-    };
+    try {
+      const payload = {
+        name: form.name,
+        email: form.email,
+        password: form.password,
+        companyName: form.company,
+        city: form.city,
+        GSTno: form.gst,
+        role: "customer",
+      };
 
-    if (isEditing && selectedCustomer) {
-      await axios.put(
-        `/api/users/customers/${selectedCustomer._id}`,
-        payload,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-    } else {
-      await axios.post("/api/users/signup", payload, {
-        headers: { Authorization: `Bearer ${token}` },
+      if (isEditing && selectedCustomer) {
+        await axios.put(
+          `/api/users/customers/${selectedCustomer._id}`,
+          payload,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      } else {
+        await axios.post("/api/users/signup", payload, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+
+      fetchCustomers();
+      setOpen(false);
+      setIsEditing(false);
+      setSelectedCustomer(null);
+      setForm({
+        name: "",
+        email: "",
+        password: "",
+        company: "",
+        city: "",
+        gst: "",
       });
+      setShowPassword(false);
+    } catch (err) {
+      if (err.response?.status === 400 && err.response?.data?.message?.includes("already exists")) {
+        alert("User already exists with this email!");
+      } else {
+        console.error(err);
+        alert("Something went wrong!");
+      }
     }
+  };
 
-    fetchCustomers();
-    setOpen(false);
-    setIsEditing(false);
-    setSelectedCustomer(null);
-    setForm({
-      name: "",
-      email: "",
-      password: "",
-      company: "",
-      city: "",
-      gst: "",
-    });
-    setShowPassword(false);
-  } catch (err) {
-    // ✅ Add this error handling block
-    if (err.response?.status === 400 && err.response?.data?.message?.includes("already exists")) {
-      alert("User already exists with this email!");
-    } else {
-      console.error(err);
-      alert("Something went wrong!");
-    }
-  }
-};
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this customer?")) return;
     try {
@@ -167,6 +168,68 @@ export default function CustomerManagement() {
   // ✅ Pagination logic
   const totalPages = Math.ceil(filteredCustomers.length / perPage);
   const paginatedCustomers = filteredCustomers.slice((page - 1) * perPage, page * perPage);
+
+  // ✅ Calculate range for showing records
+  const startRecord = (page - 1) * perPage + 1;
+  const endRecord = Math.min(page * perPage, filteredCustomers.length);
+  const totalRecords = filteredCustomers.length;
+
+  // ✅ Handle per page change
+  const handlePerPageChange = (e) => {
+    const newPerPage = parseInt(e.target.value);
+    setPerPage(newPerPage);
+    setPage(1); // Reset to first page when changing items per page
+  };
+
+  // ✅ Generate pagination buttons with ellipsis
+  const getPaginationButtons = () => {
+    const buttons = [];
+    const maxVisiblePages = 5;
+
+    if (totalPages <= maxVisiblePages) {
+      // Show all pages if total pages are less than or equal to max visible
+      for (let i = 1; i <= totalPages; i++) {
+        buttons.push(i);
+      }
+    } else {
+      // Always show first page
+      buttons.push(1);
+
+      // Calculate start and end of visible pages
+      let start = Math.max(2, page - 1);
+      let end = Math.min(totalPages - 1, page + 1);
+
+      // Adjust if we're at the beginning
+      if (page <= 3) {
+        end = 4;
+      }
+
+      // Adjust if we're at the end
+      if (page >= totalPages - 2) {
+        start = totalPages - 3;
+      }
+
+      // Add ellipsis after first page if needed
+      if (start > 2) {
+        buttons.push('...');
+      }
+
+      // Add middle pages
+      for (let i = start; i <= end; i++) {
+        buttons.push(i);
+      }
+
+      // Add ellipsis before last page if needed
+      if (end < totalPages - 1) {
+        buttons.push('...');
+      }
+
+      // Always show last page
+      buttons.push(totalPages);
+    }
+
+    return buttons;
+  };
 
   return (
     <div className="p-4 lg:p-6 w-full overflow-x-hidden">
@@ -300,42 +363,73 @@ export default function CustomerManagement() {
             </tbody>
           </table>
         </div>
-      </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center sm:justify-end mt-4 gap-1">
-          <button
-            onClick={() => setPage(prev => Math.max(prev - 1, 1))}
-            disabled={page === 1}
-            className="px-3 py-1 rounded-lg transition text-sm min-w-[36px] bg-gray-200 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            ←
-          </button>
-          
-          {Array.from({ length: totalPages }, (_, i) => (
-            <button
-              key={i}
-              onClick={() => setPage(i + 1)}
-              className={`px-3 py-1 rounded-lg transition text-sm min-w-[36px] ${
-                page === i + 1
-                  ? "bg-[#d1383a] text-white shadow"
-                  : "bg-gray-200 hover:bg-gray-300"
-              }`}
-            >
-              {i + 1}
-            </button>
-          ))}
-          
-          <button
-            onClick={() => setPage(prev => Math.min(prev + 1, totalPages))}
-            disabled={page === totalPages}
-            className="px-3 py-1 rounded-lg transition text-sm min-w-[36px] bg-gray-200 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            →
-          </button>
-        </div>
-      )}
+        {/* Pagination Controls */}
+        {totalPages > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between p-4 border-t border-gray-200 gap-4">
+            {/* Records per page selector */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">Show</span>
+              <select
+                value={perPage}
+                onChange={handlePerPageChange}
+                className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#d1383a]"
+              >
+                {perPageOptions.map(option => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+              <span className="text-sm text-gray-600">entries</span>
+            </div>
+
+            {/* Records info */}
+            <div className="text-sm text-gray-600">
+              Showing {startRecord} to {endRecord} of {totalRecords} entries
+              {searchTerm && " (filtered)"}
+            </div>
+
+            {/* Pagination buttons */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage(prev => Math.max(prev - 1, 1))}
+                disabled={page === 1}
+                className="p-2 rounded-lg transition text-sm bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Previous"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              
+              {getPaginationButtons().map((pageNum, index) => (
+                <button
+                  key={index}
+                  onClick={() => typeof pageNum === 'number' ? setPage(pageNum) : null}
+                  disabled={pageNum === '...'}
+                  className={`px-3 py-1 rounded-lg transition text-sm min-w-[36px] ${
+                    page === pageNum
+                      ? "bg-[#d1383a] text-white shadow"
+                      : pageNum === '...'
+                      ? "bg-transparent cursor-default"
+                      : "bg-gray-100 hover:bg-gray-200"
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              ))}
+              
+              <button
+                onClick={() => setPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={page === totalPages}
+                className="p-2 rounded-lg transition text-sm bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Next"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Modal */}
       {open && (
