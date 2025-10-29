@@ -112,7 +112,7 @@ const ContactSupport = ({ customerId }) => {
     <div style={{ 
       position: "fixed", 
       bottom: "20px", 
-      left: "20px", 
+      right: "20px", 
       zIndex: 999,
       transition: "all 0.3s ease-in-out"
     }}>
