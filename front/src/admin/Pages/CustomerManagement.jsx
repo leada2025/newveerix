@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from "react";
 import axios from "../../api/Axios";
-import { Pencil, Trash2, Plus, Eye, EyeOff } from "lucide-react";
+import { Pencil, Trash2, Plus, Eye, EyeOff, Search } from "lucide-react";
 
 export default function CustomerManagement() {
   const [customers, setCustomers] = useState([]);
+  const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
   // ✅ Form fields
   const [form, setForm] = useState({
@@ -34,6 +36,7 @@ export default function CustomerManagement() {
         headers: { Authorization: `Bearer ${token}` },
       });
       setCustomers(data);
+      setFilteredCustomers(data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -45,50 +48,77 @@ export default function CustomerManagement() {
     fetchCustomers();
   }, []);
 
+  // ✅ Search functionality
+  useEffect(() => {
+    if (searchTerm.trim() === "") {
+      setFilteredCustomers(customers);
+      setPage(1);
+    } else {
+      const filtered = customers.filter(customer =>
+        customer.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        customer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        customer.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        customer.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        customer.GSTno?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredCustomers(filtered);
+      setPage(1);
+    }
+  }, [searchTerm, customers]);
+
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
-  const handleAddOrEdit = async () => {
-    try {
-      const payload = {
-        name: form.name,
-        email: form.email,
-        password: form.password,
-        companyName: form.company,
-        city: form.city,
-        GSTno: form.gst,
-        role: "customer",
-      };
-
-      if (isEditing && selectedCustomer) {
-        await axios.put(
-          `/api/users/customers/${selectedCustomer._id}`,
-          payload,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-      } else {
-        await axios.post("/api/users/signup", payload, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      }
-
-      fetchCustomers();
-      setOpen(false);
-      setIsEditing(false);
-      setSelectedCustomer(null);
-      setForm({
-        name: "",
-        email: "",
-        password: "",
-        company: "",
-        city: "",
-        gst: "",
-      });
-      setShowPassword(false);
-    } catch (err) {
-      console.error(err);
-    }
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
   };
 
+  const handleAddOrEdit = async () => {
+  try {
+    const payload = {
+      name: form.name,
+      email: form.email,
+      password: form.password,
+      companyName: form.company,
+      city: form.city,
+      GSTno: form.gst,
+      role: "customer",
+    };
+
+    if (isEditing && selectedCustomer) {
+      await axios.put(
+        `/api/users/customers/${selectedCustomer._id}`,
+        payload,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    } else {
+      await axios.post("/api/users/signup", payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    }
+
+    fetchCustomers();
+    setOpen(false);
+    setIsEditing(false);
+    setSelectedCustomer(null);
+    setForm({
+      name: "",
+      email: "",
+      password: "",
+      company: "",
+      city: "",
+      gst: "",
+    });
+    setShowPassword(false);
+  } catch (err) {
+    // ✅ Add this error handling block
+    if (err.response?.status === 400 && err.response?.data?.message?.includes("already exists")) {
+      alert("User already exists with this email!");
+    } else {
+      console.error(err);
+      alert("Something went wrong!");
+    }
+  }
+};
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this customer?")) return;
     try {
@@ -135,8 +165,8 @@ export default function CustomerManagement() {
   };
 
   // ✅ Pagination logic
-  const totalPages = Math.ceil(customers.length / perPage);
-  const paginatedCustomers = customers.slice((page - 1) * perPage, page * perPage);
+  const totalPages = Math.ceil(filteredCustomers.length / perPage);
+  const paginatedCustomers = filteredCustomers.slice((page - 1) * perPage, page * perPage);
 
   return (
     <div className="p-4 lg:p-6 w-full overflow-x-hidden">
@@ -163,6 +193,33 @@ export default function CustomerManagement() {
         >
           <Plus className="w-4 h-4 mr-2" /> Add Customer
         </button>
+      </div>
+
+      {/* Search Bar */}
+      <div className="mb-6">
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <input
+            type="text"
+            placeholder="Search customers by name, email, company, city, or GST..."
+            value={searchTerm}
+            onChange={handleSearchChange}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#d1383a] focus:border-transparent"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm("")}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              ×
+            </button>
+          )}
+        </div>
+        {searchTerm && (
+          <p className="text-sm text-gray-500 mt-2">
+            Found {filteredCustomers.length} customer(s) matching "{searchTerm}"
+          </p>
+        )}
       </div>
 
       {/* Table Container */}
@@ -236,7 +293,7 @@ export default function CustomerManagement() {
               ) : (
                 <tr>
                   <td colSpan="8" className="text-center py-8 text-gray-500">
-                    No customers found
+                    {searchTerm ? "No customers found matching your search" : "No customers found"}
                   </td>
                 </tr>
               )}
@@ -248,6 +305,14 @@ export default function CustomerManagement() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex justify-center sm:justify-end mt-4 gap-1">
+          <button
+            onClick={() => setPage(prev => Math.max(prev - 1, 1))}
+            disabled={page === 1}
+            className="px-3 py-1 rounded-lg transition text-sm min-w-[36px] bg-gray-200 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            ←
+          </button>
+          
           {Array.from({ length: totalPages }, (_, i) => (
             <button
               key={i}
@@ -261,6 +326,14 @@ export default function CustomerManagement() {
               {i + 1}
             </button>
           ))}
+          
+          <button
+            onClick={() => setPage(prev => Math.min(prev + 1, totalPages))}
+            disabled={page === totalPages}
+            className="px-3 py-1 rounded-lg transition text-sm min-w-[36px] bg-gray-200 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            →
+          </button>
         </div>
       )}
 
