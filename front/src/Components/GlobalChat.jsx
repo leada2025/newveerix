@@ -26,10 +26,12 @@ export default function GlobalChat({ customerId, onMessageReceived }) {
     if (!socket.connected) socket.connect();
     socket.emit("join_global", customerId);
 
- const handleMessage = (msg) => {
+const handleMessage = (msg) => {
+  // Ignore echo of your own messages
+  if (msg.sender === "customer") return;
+
   if (msg.customerId === customerId) {
     setMessages((prev) => {
-      // Avoid duplicate same message
       const alreadyExists = prev.some(
         (m) =>
           m.message === msg.message &&
@@ -42,6 +44,7 @@ export default function GlobalChat({ customerId, onMessageReceived }) {
     if (onMessageReceived) onMessageReceived(msg);
   }
 };
+
 
 
     const handleTyping = (data) => {
@@ -74,19 +77,25 @@ export default function GlobalChat({ customerId, onMessageReceived }) {
     time: new Date().toISOString(),
   };
 
+  console.log("SENDING MESSAGE:", msg);
+
   try {
     // Optimistically update UI
     setMessages((prev) => [...prev, msg]);
     setInput("");
-    
-    // Only emit socket event
+
+    // ✅ Emit message once
     socket.emit("global_customer_message", msg);
+
+    // Emit typing stopped
     socket.emit("typing", { customerId, role: "customer", typing: false });
   } catch (err) {
     console.error("Error sending message:", err);
-    setMessages((prev) => prev.filter(m => 
-      m.time !== msg.time || m.message !== msg.message
-    ));
+
+    // Optional rollback if needed
+    setMessages((prev) =>
+      prev.filter((m) => m.time !== msg.time || m.message !== msg.message)
+    );
   }
 };
 

@@ -96,26 +96,27 @@ module.exports = {
       });
 
       // 🔹 Customer sends message in global chat
-      socket.on("global_customer_message", async ({ customerId, message }) => {
-        if (!customerId) return;
-        try {
-          const payload = { customerId, message, sender: "customer", time: new Date() };
-          await GlobalMessage.create(payload);
+     socket.on("global_customer_message", async ({ customerId, message }) => {
+  if (!customerId) return;
+  try {
+    const payload = { customerId, message, sender: "customer", time: new Date() };
+    await GlobalMessage.create(payload);
 
-          const customer = await User.findById(customerId).select("name");
+    const customer = await User.findById(customerId).select("name");
 
-          const notification = {
-            ...payload,
-            customerName: customer?.name || "Customer",
-            type: "global",
-          };
+    const notification = {
+      ...payload,
+      customerName: customer?.name || "Customer",
+      type: "global",
+    };
 
-          io.to(`global_${customerId}`).emit("global_chat_message", { ...notification, target: "customer" });
-          io.to("admin_global").emit("global_chat_message", { ...notification, target: "admin" });
-        } catch (err) {
-          console.error("Error in global_customer_message:", err);
-        }
-      });
+    // ✅ Don't send back to sender — only admins get it via room broadcast
+    socket.to(`global_${customerId}`).emit("global_chat_message", { ...notification, target: "customer" });
+    io.to("admin_global").emit("global_chat_message", { ...notification, target: "admin" });
+  } catch (err) {
+    console.error("Error in global_customer_message:", err);
+  }
+});
 
       // 🔹 Admin sends message in global chat
 socket.on("global_admin_message", async ({ customerId, message }) => {
