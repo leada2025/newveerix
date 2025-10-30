@@ -4,6 +4,12 @@ import { FiSettings, FiLogOut } from "react-icons/fi";
 import { Bell } from "lucide-react";
 import socket from "../../Components/Socket";
 import axios from "../../api/Axios";
+const getDisplayName = (quote) => {
+  if (quote.brandName && !quote.brandName.startsWith("__temp_")) {
+    return quote.brandName;
+  }
+  return quote.moleculeName || quote.customMolecule || "Unnamed Product";
+};
 
 export default function AdminNavbar() {
   const [settingsDropdownOpen, setSettingsDropdownOpen] = useState(false);
@@ -56,11 +62,13 @@ export default function AdminNavbar() {
     // 📦 Quote update handler
     const handleQuoteUpdate = async ({ quote, change }) => {
       const customerName = quote.customerId?.name || "Customer";
-      const message = change?.message
-        ? `${change.message} (Brand: ${quote.brandName}, Customer: ${customerName})`
-        : `Quote for ${quote.brandName} (Customer: ${customerName}) updated: ${quote.status}${
-            change?.stepLabel ? ` → Step: ${change.stepLabel}` : ""
-          }`;
+      const displayName = getDisplayName(quote);
+
+  const message = change?.message
+    ? `${change.message} (Product: ${displayName}, Customer: ${customerName})`
+    : `Quote for ${displayName} (Customer: ${customerName}) updated: ${quote.status}${
+        change?.stepLabel ? ` → Step: ${change.stepLabel}` : ""
+      }`;
 
       const newNotif = {
         title: "Quote Update",
