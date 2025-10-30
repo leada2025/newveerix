@@ -21,7 +21,14 @@ export default function Navbar() {
   const navigate = useNavigate();
 const dropdownRef = useRef(null); // 👈 ref for notification dropdown
 const bellRef = useRef(null); 
-  // 🔥 Socket setup and listeners
+ 
+const getDisplayName = (quote) => {
+  if (quote.brandName && !quote.brandName.startsWith("__temp_")) {
+    return quote.brandName;
+  }
+  return quote.moleculeName || quote.customMolecule || "Unnamed Product";
+};
+// 🔥 Socket setup and listeners
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
     if (!user?._id) return;
@@ -37,14 +44,15 @@ const bellRef = useRef(null);
       if (change?.message) {
         message = `${change.message} (Brand: ${quote.brandName})`;
       } else {
-        const statusText = {
-          Pending: `Your request for ${quote.brandName || quote.moleculeName || quote.customMolecule } has been submitted.`,
-          "Quote Sent": `A new quote for ${quote.brandName || quote.moleculeName || quote.customMolecule } has been sent by the admin.`,
-          "Approved Quote": `Your quote for ${quote.brandName || quote.moleculeName || quote.customMolecule } has been approved!`,
-          "Payment Requested": `Payment has been requested for ${quote.brandName || quote.moleculeName || quote.customMolecule }.`,
-          Paid: `Your payment for ${quote.brandName || quote.moleculeName || quote.customMolecule } has been confirmed.`,
-          Rejected: `Your quote for ${quote.brandName || quote.moleculeName || quote.customMolecule } has been rejected.`,
-        };
+       const statusText = {
+  Pending: `Your request for ${getDisplayName(quote)} has been submitted.`,
+  "Quote Sent": `A new quote for ${getDisplayName(quote)} has been sent by the admin.`,
+  "Approved Quote": `Your quote for ${getDisplayName(quote)} has been approved!`,
+  "Payment Requested": `Payment has been requested for ${getDisplayName(quote)}.`,
+  Paid: `Your payment for ${getDisplayName(quote)} has been confirmed.`,
+  Rejected: `Your quote for ${getDisplayName(quote)} has been rejected.`,
+};
+
         message =
           statusText[quote.status] ||
           `Quote update for ${quote.brandName}: ${quote.status}`;
